@@ -1,0 +1,28 @@
+MAA v6.21.1 / macOS 13.7.4：第六次編譯修補
+
+第五次 GitHub Actions 日誌（build-logs(3).zip）的確定原因：
+- C 橋接檢查通過（core-c-import-check.txt）。
+- Objective-C++ 檢查失敗（core-cxx-bridge-check.txt），兩項錯誤分別為
+  AsstGetMapLevelKey / AsstGetItemName 未宣告。
+- 官方 AsstCallerExtra.h 顯示兩個宣告都位於 #if ASST_WITH_EXTRA_CALLERS 條件區塊。
+- 官方 libMaaCore.dylib（arm64）確實匯出兩個函式；不需要更換核心。
+
+本版只修改 Core/MAAMac13Bridge.mm 的標頭匯入前條件：
+  #ifndef ASST_WITH_EXTRA_CALLERS
+  #define ASST_WITH_EXTRA_CALLERS 1
+  #endif
+  #if !ASST_WITH_EXTRA_CALLERS
+  #error "MAAMac13Bridge requires ASST_WITH_EXTRA_CALLERS=1"
+  #endif
+
+此巨集只作用於 Objective-C++ 翻譯單元，Swift 匯入的 MaaCore 模組仍只公開 C 橋接介面。
+保留第五版的 C、Objective-C++、Swift 三階段編譯前檢查。
+
+驗證結果：
+- 使用第五次日誌中實際的 AsstCallerExtra.h（配合最低限度的 AsstCaller.h
+  模擬依賴）測試：舊版編譯失敗，新版 clang++ 語法檢查成功。
+- Python 腳本與 Bash 腳本語法檢查成功。
+- 尚未經 Apple Clang、官方完整標頭、GitHub Actions 全編譯及 macOS 13.7.4 實機驗證。
+
+下載更新後，請從 GitHub Actions 新建一次 Build MAA for macOS 13 執行紀錄。
+成功則下載 MAA-macOS13-arm64-candidate；失敗則上傳 build-logs ZIP。

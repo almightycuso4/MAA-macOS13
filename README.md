@@ -1,6 +1,6 @@
 # MAA v6.21.1 / macOS 13 ARM64 相容移植
 
-**狀態：第四次雲端編譯候選原始碼；尚未通過 GitHub Actions 編譯及 macOS 13 真機測試。不是可直接執行的 MAA.app。**
+**狀態：第六次雲端編譯候選原始碼；尚未通過 GitHub Actions 編譯及 macOS 13 真機測試。不是可直接執行的 MAA.app。**
 
 目標：Apple Silicon、macOS 13.7.4，不升級系統。沿用官方 v6.21.1 核心、同版本資源與標頭；GUI 使用 GitHub Actions macos-26／Xcode 26 編譯，部署目標設為 macOS 13.3。
 
@@ -39,3 +39,9 @@
 - 修正第四次編譯遇到的 `AsstCallerExtra.h` C 語言函式宣告不可見問題：改用 GUI 內 Objective-C++ 橋接來源，Swift 只讀取純 C 介面。
 - 增加官方 C++ 標頭、C 介面、Swift 匯入的前置檢查與診斷日誌。
 - 這是待 GitHub Actions 編譯及 macOS 13.7.4 實機測試的修正版原始碼，不是已驗證的 App。
+
+## 第六次修補（2026-11-02）
+
+第五次日誌 `core-extra-header.txt` 證實，v6.21.1 的 `AsstCallerExtra.h` 以 `#if ASST_WITH_EXTRA_CALLERS` 包住兩個擴充函式。Objective-C++ 橋接檔未啟用該巨集而編譯失敗。第六版於橋接檔匯入官方標頭之前啟用 `ASST_WITH_EXTRA_CALLERS=1`，不改官方標頭或動態函式庫。
+
+已用日誌中的真實擴充標頭（配合模擬依賴標頭）完成 clang++ 語法測試；正式 Apple Silicon Xcode 建置及 macOS 13.7.4 實機測試仍待完成。
