@@ -1,0 +1,28 @@
+MAA v6.21.1 / Apple Silicon / macOS 13.7.4 — 第八版修補
+
+【第七次日誌的實際結果】
+本次上傳的 build-logs (1)(1).zip 僅有 logs/build.log（約 2.5 KB）。
+下載官方 v6.21.1 完整原始碼壓縮包約 105 MB 時，curl 結束於：
+  curl: (56) Recv failure: Operation timed out
+尚未進入 C/Swift 匯入檢查、xcframework 建立或 xcodebuild 編譯，因此此次無法判斷第七版模組衝突是否已解除。
+
+【修正】
+- scripts/build.sh：移除 GitHub 官方版本約 105MB tar.gz 全量下載及解壓。
+- scripts/fetch_core_headers.py：改從官方 GitHub Contents API 遞迴抓取同一 v6.21.1 標籤的 include/ 目錄。
+- 下載器對短暫失敗重試最多 5 次；404/權限錯誤立即停止；逐檔核對 Git blob SHA-1 與大小。
+- 使用 GitHub Actions 內建 GH_TOKEN；下載過程輸出至 logs/build.log，摘要記錄至 logs/core-header-download.txt。
+- tests/test_fetch_core_headers.py：7 個離線單元測試，並在完整建置前執行。
+
+未修改 Swift、Objective-C++ 橋接、MaaCore 版本、Xcode 工程或第七版模組搜尋路徑修補。
+
+【本地確認】
+- bash -n scripts/build.sh 通過。
+- Python py_compile 通過。
+- 單元測試 7/7 通過（模擬內容、遞迴、SHA/大小驗證、路徑安全、標籤拒絕、HTTP 404/503）。
+- 無 macOS/Xcode 及可用 GitHub 網路，尚未進行實際 API 下載、完整 Xcode 編譯或 macOS 13.7.4 實機測試。
+
+【下一次執行的觀察點】
+1. 從 build.log 找到「Core header download PASS」。
+2. 核對 logs/core-header-download.txt 的 tag、檔案數與 SHA 驗證。
+3. 核對核心 C/Objective-C++/Swift 匯入檢查和完整 xcodebuild 先後結果。
+4. 成功則下載候選 App，於 macOS 13.7.4 測試；失敗則上傳完整 build-logs ZIP。

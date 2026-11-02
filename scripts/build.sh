@@ -8,14 +8,16 @@ fi
 xcodebuild -version
 swift --version
 mkdir -p work/download build output logs
+# Test the exact-tag, authenticated header fetcher before external downloads.
+python3 -m unittest discover -s tests -p test_fetch_core_headers.py
 # Runtime and headers MUST come from the same tag. Never silently substitute latest.
 gh release download "$MAA_CORE_TAG" --repo MaaAssistantArknights/MaaAssistantArknights \
   --pattern "MAA-${MAA_CORE_TAG}-macos-universal.dmg" --dir work/download
-curl --fail --location --retry 3 \
-  "https://github.com/MaaAssistantArknights/MaaAssistantArknights/archive/refs/tags/${MAA_CORE_TAG}.tar.gz" \
-  -o work/core-source.tar.gz
-mkdir -p work/core-source
-tar -xzf work/core-source.tar.gz --strip-components=1 -C work/core-source
+# Only the matching release's public headers are needed; do not fetch the
+# entire 100+ MB source archive. The Contents API returns each file's Git SHA
+# and lets us validate the bytes before using them to build the XCFramework.
+mkdir -p work/headers
+python3 scripts/fetch_core_headers.py "$MAA_CORE_TAG" work/headers logs
 mkdir -p work/mount
 hdiutil attach "work/download/MAA-${MAA_CORE_TAG}-macos-universal.dmg" \
   -nobrowse -readonly -mountpoint "$PWD/work/mount"
@@ -28,8 +30,6 @@ trap - EXIT
 python3 scripts/check_minos.py work/official.app/Contents/Frameworks
 # The project expects the main repository layout src/MaaMacGui, build, resource.
 ditto work/official.app/Contents/Resources/resource resource
-mkdir -p work/headers
-ditto work/core-source/include work/headers
 # Import the actual public extension header(s) and verify that the binary
 # exports the matching arm64 symbols. Diagnostics are preserved on failure.
 python3 scripts/prepare_core_headers.py \
