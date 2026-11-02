@@ -47,6 +47,13 @@ for name,pattern in [('MaaCore','libMaaCore.dylib'),('MaaUtils','libMaaUtils.dyl
     cmd+=['-output',str(root/'build'/f'{name}.xcframework')]
     subprocess.run(cmd,check=True)
 PY
+# IMPORTANT: Do not add HEADER_SEARCH_PATHS=$PWD/work/headers here.
+# xcodebuild stages the MaaCore XCFramework's module.modulemap under
+# DerivedData/Build/Products/Release/include. The original work/headers also
+# has a MaaCore module.modulemap for the isolated import probes above. Putting
+# both directories on Xcode's global header search path makes Clang see two
+# definitions of module MaaCore and breaks all Swift package dependency scans.
+# The linked MaaCore.xcframework supplies its own headers to this target.
 # A current GUI plus an older core can have an API mismatch; stop on compile/link
 # errors rather than constructing an app from mismatched declarations.
 xcodebuild -skipMacroValidation -project src/MaaMacGui/MeoAsstMac.xcodeproj -scheme MAA \
@@ -54,7 +61,6 @@ xcodebuild -skipMacroValidation -project src/MaaMacGui/MeoAsstMac.xcodeproj -sch
   -derivedDataPath "$PWD/work/DerivedData" \
   ARCHS=arm64 ONLY_ACTIVE_ARCH=YES MACOSX_DEPLOYMENT_TARGET=13.3 \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-  HEADER_SEARCH_PATHS="$PWD/work/headers" \
   MARKETING_VERSION="${MAA_CORE_TAG#v}" CURRENT_PROJECT_VERSION=1 \
   build
 candidate="$PWD/work/DerivedData/Build/Products/Release/MAA.app"

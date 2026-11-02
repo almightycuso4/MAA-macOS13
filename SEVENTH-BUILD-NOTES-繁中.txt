@@ -1,0 +1,35 @@
+MAA v6.21.1 / Apple Silicon / macOS 13.7.4 — 第七版修補
+
+本次修正：第六次 GitHub Actions build-logs(4).zip 的 module 'MaaCore' 重複定義。
+
+【已證實的失敗原因】
+第六次日誌同時看到：
+  work/headers/module.modulemap:1:8: redefinition of module 'MaaCore'
+  work/DerivedData/Build/Products/Release/include/module.modulemap:1:8:
+    note: previously defined here
+
+scripts/build.sh 對整個 xcodebuild 指定了：
+  HEADER_SEARCH_PATHS="$PWD/work/headers"
+但 Xcode 已經把 MaaCore.xcframework 的 module.modulemap 複製到 Products/Release/include，
+兩個目錄均有 module MaaCore 的宣告，Clang 因而停止掃描依賴。
+後面數十至上百條 _SwiftConcurrencyShims、zlib、Foundation 等找不到模組的錯誤，
+是依賴掃描被前述衝突中止後的連鎖結果，並不代表這些套件各自損壞。
+
+【修正】
+只改 scripts/build.sh：移除全域 HEADER_SEARCH_PATHS 設定，讓已連結的
+MaaCore.xcframework 提供模組與標頭。保留前面獨立 C、Objective-C++、Swift
+API 匯入測試中的 -I work/headers；這些測試是獨立程序，不會與 Xcode 建置路徑衝突。
+保留 macOS 13.3 deployment target、arm64、v6.21.1 官方核心與所有前六版 GUI 修正。
+
+【驗證範圍】
+已對修正版 build.sh 執行 bash -n、靜態檢查移除的全域搜尋路徑，
+並核對第六次失敗日誌中的兩份 module.modulemap 位置。
+目前工作環境沒有 macOS/Xcode，因此尚未執行完整 Xcode 編譯或 macOS 13.7.4 實機測試。
+第七次 GitHub Actions 若失敗，應依新的「第一個主要錯誤」繼續定位，
+不能預先保證沒有其他尚未浮現的錯誤。
+
+【下一輪的驗收標準】
+1. Xcode/Swift 套件依賴掃描完成，不再出現 MaaCore redefinition。
+2. GUI Swift/Objective-C++ 編譯及連結完成。
+3. 輸出 MAA.app、檢查 arm64 最低部署版本，完成簽名及 ZIP 打包。
+4. 在使用者 macOS 13.7.4 Apple Silicon 真機啟動並測試資源、連線及 GUI。

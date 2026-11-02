@@ -1,47 +1,22 @@
-# MAA v6.21.1 / macOS 13 ARM64 相容移植
+# MAA v6.21.1 / macOS 13.7.4（Apple Silicon）相容移植
 
-**狀態：第六次雲端編譯候選原始碼；尚未通過 GitHub Actions 編譯及 macOS 13 真機測試。不是可直接執行的 MAA.app。**
+**狀態：第七版原始碼候選。尚未完成 GitHub Actions 全量編譯與 macOS 13.7.4 實機測試。不是已可執行的 MAA.app。**
 
-目標：Apple Silicon、macOS 13.7.4，不升級系統。沿用官方 v6.21.1 核心、同版本資源與標頭；GUI 使用 GitHub Actions macos-26／Xcode 26 編譯，部署目標設為 macOS 13.3。
+本專案將 GUI 部署版本設為 macOS 13.3，使用官方 MAA v6.21.1 同版本核心、資源及標頭，以 GitHub Actions macos-26／Xcode 26 進行 arm64 建置；不要求使用者升級本機 macOS。
 
-## 第三次編譯日誌：實際發現
+## 第七次修正
 
-第三次日誌只剩兩個 Swift 編譯錯誤，均位於 `MeoAsstMac/Core/Maa.swift`：
+第六次 GitHub Actions `build-logs(4).zip` 顯示 `module 'MaaCore'` 重複定義，兩份模組映射分別在 `work/headers/module.modulemap` 及 `work/DerivedData/Build/Products/Release/include/module.modulemap`。此前 `scripts/build.sh` 將原始標頭目錄設為整個 Xcode 建置的全域 `HEADER_SEARCH_PATHS`，Xcode 又會將 XCFramework 的模組映射加入衍生產出目錄，因此在同一個 Clang 模組搜尋環境出現衝突。依賴掃描失敗後其他系統／套件模組也連鎖報錯。
 
-- `AsstGetMapLevelKey` 未匯入 Swift（原第 34 行）。
-- `AsstGetItemName` 未匯入 Swift（原第 44 行）。
+**修補：移除全域 `HEADER_SEARCH_PATHS` 設定，改由 Xcode 自動取得已連結 `MaaCore.xcframework` 的標頭與模組映射。** 獨立的 C、Objective-C++、Swift 核心 API 檢查仍在正式 Xcode 建置前進行。未修改核心版本及 GUI 核心 API 呼叫。
 
-`logs/core-api-check.txt` 已證實**兩者均在官方 v6.21.1 的 `AsstCallerExtra.h` 中有宣告，並由 arm64 `libMaaCore.dylib` 匯出**。問題位於 C→Swift 介面，不需要升級 macOS 或更換核心。`MaaCore` module umbrella 已包含 AsstCallerExtra.h；仍無法直接在 Swift 找到兩個函式，因此上一版單純增加標頭的修正不足。
+前六次已修改 GUI 對 macOS 14 的 Observation／SwiftUI API 使用，以及 v6.21.1 擴充 C API 的 Objective-C++ 橋接；細節見各輪說明文件及 `GUI-changes.diff`。
 
-## 第四次修正
+## 操作及驗收
 
-1. `scripts/prepare_core_headers.py` 從官方標頭產生 `MAAMac13Bridge.h`：兩個 `static inline` C 函式呼叫真正的 `AsstGetMapLevelKey` 與 `AsstGetItemName`，提供 Swift 容易匯入的 `const char *` 回傳值，不偽造官方符號及宣告。
-2. `Maa.swift` 透過 `MAAMac13GetMapLevelCode` / `MAAMac13GetItemName` 呼叫相容介面，保留原本查詢關卡代碼、物品名稱的業務行為。
-3. Module umbrella 同時包含 `MaaCore.h`（若官方標頭存在），消除缺少該 header 的警告。
-4. **在 Xcode 編譯 GUI 之前**新增 Clang C 語法與 Swift 匯入型別檢查，失敗時記錄 `core-c-import-check.txt` 或 `core-swift-import-check.txt` 供精確修正。
+見 `UPDATE-GITHUB-繁中.txt`。推送新提交後，使用 GitHub 網頁 `Actions` → `Build MAA for macOS 13` → `Run workflow`，設定 `core_tag=v6.21.1`。
 
-上次已修復的 Combine／協定／macOS 13 顏色相容問題均保留。未啟用官方 Sparkle 程式更新入口。
+- 編譯成功：下載 `MAA-macOS13-arm64-candidate`，於 macOS 13.7.4 真機測試啟動、設定、資源載入、裝置連線與基本任務。
+- 編譯失敗：上傳該次執行的 `build-logs` ZIP；依最先出現的實際錯誤分析，而不是把後續大量連鎖錯誤當成獨立問題。
 
-## 編譯、回報與驗證
-
-請依 `UPDATE-GITHUB-繁中.txt` 把修補檔合併至**原有** GitHub 倉庫。不要重新建立倉庫。新建一筆 Actions workflow run（`core_tag=v6.21.1`），不要對舊執行結果按 `Re-run jobs`。
-
-- 綠色成功：在 `Artifacts` 下載 `MAA-macOS13-arm64-candidate`，解壓後在 macOS 13.7.4 實機測試；先備份設定，勿覆蓋現有 MAA.app。
-- 紅色失敗：在 `Artifacts` 下載 `build-logs` ZIP，上傳完整檔案。會含 `build.log`、核心 API 檢查、nm 匯出符號、C／Swift 匯入診斷（執行到該步驟時）。
-
-**驗證範圍：**在本地 Linux 已使用模擬的 C API 標頭驗證橋接程式能通過 Clang 和 Swift 匯入型別檢查，並檢查 Python/Bash 語法。實際 v6.21.1 的 Apple 專用標頭、Xcode 編譯、動態連結與 macOS 13.7.4 實機運行，仍待下一次 Actions／實機檢驗。
-
-官方來源：<https://github.com/MaaAssistantArknights/MaaAssistantArknights>、<https://github.com/MaaAssistantArknights/MaaMacGui>。
-
-
-## 第五次修補（2026-11-02）
-
-- 修正第四次編譯遇到的 `AsstCallerExtra.h` C 語言函式宣告不可見問題：改用 GUI 內 Objective-C++ 橋接來源，Swift 只讀取純 C 介面。
-- 增加官方 C++ 標頭、C 介面、Swift 匯入的前置檢查與診斷日誌。
-- 這是待 GitHub Actions 編譯及 macOS 13.7.4 實機測試的修正版原始碼，不是已驗證的 App。
-
-## 第六次修補（2026-11-02）
-
-第五次日誌 `core-extra-header.txt` 證實，v6.21.1 的 `AsstCallerExtra.h` 以 `#if ASST_WITH_EXTRA_CALLERS` 包住兩個擴充函式。Objective-C++ 橋接檔未啟用該巨集而編譯失敗。第六版於橋接檔匯入官方標頭之前啟用 `ASST_WITH_EXTRA_CALLERS=1`，不改官方標頭或動態函式庫。
-
-已用日誌中的真實擴充標頭（配合模擬依賴標頭）完成 clang++ 語法測試；正式 Apple Silicon Xcode 建置及 macOS 13.7.4 實機測試仍待完成。
+本地驗證：`bash -n scripts/build.sh`、靜態核對原始 `xcodebuild` 命令及第六次日誌。工作環境沒有 macOS/Xcode，因此仍不能聲稱成功完成完整編譯或實機驗證。

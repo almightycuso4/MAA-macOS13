@@ -1,43 +1,19 @@
-MAA v6.21.1／macOS 13.7.4：第六次 GitHub 更新步驟
+第七版 GitHub Desktop 更新步驟
 
-一、取得修補檔
-1. 下載 MAA-macOS13-sixth-build-patch.zip。
-2. 檔案通常位於 macOS「下載」（Downloads）資料夾，雙擊解壓縮。
-3. 解壓後應有資料夾：MAA-macOS13-sixth-build-patch/MAA-macOS13。
+1. 將 MAA-macOS13-seventh-build-patch.zip 下載至「下載」資料夾並解壓。
+2. 開啟 GitHub Desktop，左上角 Current Repository（目前倉庫）選 MAA-macOS13，
+   Current Branch（目前分支）選 main。
+3. 按 Fetch origin（取得遠端更新）；若出現 Pull origin（拉取遠端更新）則先點擊同步。
+4. 選擇 GitHub Desktop 選單 Repository（倉庫）→ Open in Terminal（在終端機開啟）。
+5. 執行：
+   ditto "$HOME/Downloads/MAA-macOS13-seventh-build-patch/MAA-macOS13" .
+6. 回到 Changes（變更），核對 scripts/build.sh，Summary（提交摘要）輸入：
+   Fix duplicate MaaCore module map in Xcode build
+7. 點 Commit to main（提交到 main），再按 Push origin（推送到遠端）。
+8. 開啟 GitHub 網頁倉庫，按 Actions（自動化工作流程）→ Build MAA for macOS 13
+   → Run workflow（執行工作流程）。分支為 main，core_tag 為 v6.21.1，
+   再按綠色 Run workflow（確認執行）。
+9. 若綠色成功，下載 Artifacts（產出檔案）下的 MAA-macOS13-arm64-candidate；
+   若紅色失敗，下載 build-logs ZIP 並上傳。不要對舊提交按 Re-run jobs。
 
-二、將修補內容套用到既有 GitHub 倉庫
-1. 開啟 GitHub Desktop。
-2. 左上 Current Repository（目前倉庫）選 MAA-macOS13。
-3. 上方 Current Branch（目前分支）確認 main。
-4. 按 Fetch origin（取得遠端更新）；如出現 Pull origin（拉取遠端更新），先按它。
-5. macOS 頂端選單選 Repository（倉庫）→ Open in Terminal（在終端機開啟）。
-6. 貼上以下一整行，按 Return：
-
-   ditto "$HOME/Downloads/MAA-macOS13-sixth-build-patch/MAA-macOS13" .
-
-   最後的英文句點代表目前倉庫。若實際解壓位置不同，調整引號內來源路徑。
-7. 回 GitHub Desktop，選左側 Changes（變更）。應看到：
-   src/MaaMacGui/MeoAsstMac/Core/MAAMac13Bridge.mm
-   SIXTH-BUILD-NOTES-繁中.txt
-   README.md
-   UPDATE-GITHUB-繁中.txt
-8. 左下 Summary（提交摘要）填：Enable v6.21.1 extra API declarations
-9. 按 Commit to main（提交到 main）。
-10. 按 Push origin（推送至 GitHub）。
-    若提示 Newer Commits on Remote（遠端已有新提交），先 Fetch、Pull 再 Push。
-    若出現 Resolve conflicts（解決衝突），先保留衝突資訊，不要按 Force push。
-
-三、建立第六次 GitHub Actions 編譯
-1. 用瀏覽器開啟原本的 MAA-macOS13 GitHub 倉庫。
-2. 點 Actions（自動化工作流程）。
-3. 左側點 Build MAA for macOS 13。
-4. 右側點 Run workflow（執行工作流程）。
-5. Branch（分支）選 main；core_tag（核心版本）保留 v6.21.1。
-6. 點綠色 Run workflow（確認執行）。請建立新執行紀錄，不要 Re-run jobs（重跑舊提交）。
-
-四、檢查結果
-- 綠色成功：至 Artifacts（產出檔案）下載 MAA-macOS13-arm64-candidate，先備份設定再進行 macOS 13.7.4 實機測試。
-- 紅色失敗：至 Artifacts 下載 build-logs ZIP 並上傳完整檔案。
-- 請特別留意 core-cxx-bridge-check.txt，成功時應出現 Exit code: 0。
-
-提醒：本 ZIP 是原始碼修補，不是可以立即啟動的 MAA.app。
+注意：此包是原始碼修補，不是已能執行的 MAA.app。所有已知功能均保留。
