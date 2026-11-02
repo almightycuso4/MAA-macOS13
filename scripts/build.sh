@@ -30,12 +30,11 @@ python3 scripts/check_minos.py work/official.app/Contents/Frameworks
 ditto work/official.app/Contents/Resources/resource resource
 mkdir -p work/headers
 ditto work/core-source/include work/headers
-cat > work/headers/module.modulemap <<'MAP'
-module MaaCore {
-    header "AsstCaller.h"
-    export *
-}
-MAP
+# Import the actual public extension header(s) and verify that the binary
+# exports the matching arm64 symbols. Diagnostics are preserved on failure.
+python3 scripts/prepare_core_headers.py \
+  work/headers \
+  work/official.app/Contents/Frameworks/libMaaCore.dylib logs
 python3 - <<'PY'
 from pathlib import Path
 import subprocess
@@ -50,7 +49,7 @@ for name,pattern in [('MaaCore','libMaaCore.dylib'),('MaaUtils','libMaaUtils.dyl
 PY
 # A current GUI plus an older core can have an API mismatch; stop on compile/link
 # errors rather than constructing an app from mismatched declarations.
-xcodebuild -project src/MaaMacGui/MeoAsstMac.xcodeproj -scheme MAA \
+xcodebuild -skipMacroValidation -project src/MaaMacGui/MeoAsstMac.xcodeproj -scheme MAA \
   -configuration Release -destination 'generic/platform=macOS' \
   -derivedDataPath "$PWD/work/DerivedData" \
   ARCHS=arm64 ONLY_ACTIVE_ARCH=YES MACOSX_DEPLOYMENT_TARGET=13.3 \

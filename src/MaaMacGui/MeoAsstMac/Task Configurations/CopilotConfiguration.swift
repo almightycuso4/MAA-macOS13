@@ -92,10 +92,35 @@ enum CopilotCategory: String, CaseIterable {
 final class CopilotContext: ObservableObject {
     @Published var config = CopilotConfiguration()
 
-    @Defaults("CopilotContentCategory")
-    var category = CopilotCategory.bundled
+    // Use Combine on macOS 13: updating the category must redraw the SwiftUI views.
+    // Keep the upstream UserDefaults key and raw-value format for existing settings.
+    @Published var category: CopilotCategory {
+        didSet {
+            guard category != oldValue else { return }
+            UserDefaults.standard.set(category.rawValue, forKey: Self.categoryKey)
+        }
+    }
+
+    private static let categoryKey = "CopilotContentCategory"
+    private var defaultsChangeSubscription: AnyCancellable?
 
     init() {
+        let saved = UserDefaults.standard.string(forKey: Self.categoryKey)
+        category = saved.flatMap(CopilotCategory.init(rawValue:)) ?? .bundled
+
+        // A preference changed by another component in this process must also
+        // invalidate the selection and refresh all dependent views.
+        defaultsChangeSubscription = NotificationCenter.default
+            .publisher(for: UserDefaults.didChangeNotification, object: UserDefaults.standard)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let saved = UserDefaults.standard.string(forKey: Self.categoryKey)
+                let category = saved.flatMap(CopilotCategory.init(rawValue:)) ?? .bundled
+                if self.category != category {
+                    self.category = category
+                }
+            }
     }
 
     struct ItemID: Hashable {

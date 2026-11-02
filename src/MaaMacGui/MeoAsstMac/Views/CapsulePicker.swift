@@ -66,7 +66,7 @@ private struct ColoredCapsuleButtonStyle: ButtonStyle {
             backgroundColor = color
         } else {
             foregroundColor = .primary
-            backgroundColor = Color(.secondarySystemFill)
+            backgroundColor = Color(nsColor: .controlBackgroundColor)
         }
 
         return configuration.label

@@ -216,7 +216,7 @@ protocol LogStore: AnyObject {
     func setOperBox(_ operBox: MAAOperBox?)
     func setDailyTasksDetailMode(_ mode: MAAViewModel.DailyTasksDetailMode)
 
-    @Published var screencapCost: (min: Int, max: Int, avg: Int)? { get set }
+    var screencapCost: (min: Int, max: Int, avg: Int)? { get set }
     var lastScreencapWarningLevel: Int { get set }
     var hasPrintedFPSHighTip: Bool { get set }
     var recruitConfirmTimes: Int { get set }

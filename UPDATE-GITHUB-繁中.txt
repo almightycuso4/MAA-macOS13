@@ -1,0 +1,62 @@
+MAA v6.21.1 / macOS 13 第三次編譯：GitHub Desktop 更新步驟
+
+你已經建立 GitHub 倉庫並且做過兩次編譯，不需要再建新倉庫。
+
+0. 先下載 MAA-macOS13-third-build-patch.zip 並解壓到「下載」資料夾。
+   解壓後會看到 MAA-macOS13-third-build-patch 資料夾。
+   這是「原始碼修補檔」，不是可直接打開的 MAA.app。
+
+1. 打開 GitHub Desktop（GitHub 桌面版）。
+   左上角 Current Repository（目前倉庫）選你已建立的「MAA-macOS13」。
+   上方 Current Branch（目前分支）確認是 main。
+   若上方有 Fetch origin（檢查遠端更新），先按；
+   若變成 Pull origin（下載遠端更新），先按它，同步網頁上做過的修改。
+
+2. Mac 的 Finder（訪達）打開修補包內的 MAA-macOS13 資料夾，
+   會看到 README.md、GUI-changes.diff、scripts、src。
+   回 GitHub Desktop 選選單 Repository（倉庫）→ Show in Finder（在訪達顯示）。
+
+   建議用下列終端指令覆蓋「檔案」，而不是直接在 Finder 裡選 Replace 整個 src 資料夾：
+
+   在 GitHub Desktop 選單 Repository（倉庫）→ Open in Terminal（在終端機打開），
+   或者 Finder 打開倉庫目錄後，右鍵倉庫資料夾 → 服務 → 新增位於檔案夾位置的終端機視窗。
+
+   確認終端機已在 MAA-macOS13 倉庫根目錄，執行：
+
+   ditto "$HOME/Downloads/MAA-macOS13-third-build-patch/MAA-macOS13" .
+
+   此指令只會合併／覆蓋修補包提供的個別檔案，不會刪掉其他專案原始碼。
+   如果 Safari 把 ZIP 解壓到其他位置，請在 Finder 將解壓後的 MAA-macOS13 資料夾
+   拖進終端機，自動填入完整路徑（放在 ditto 的第一個參數位置）。
+
+3. 回到 GitHub Desktop：
+   Changes（變更）頁面應看到修改的 Swift 原始碼、build.sh、README、
+   GUI-changes.diff，以及新增的 prepare_core_headers.py。
+   左下角 Summary（提交摘要）輸入：Fix macOS 13 Swift build errors
+   按 Commit to main（提交到 main 分支）。
+   上方按 Push origin（推送到 GitHub 遠端）。
+   重要：只按 Commit 不等於已上傳，要再按 Push origin。
+
+4. 在瀏覽器打開自己 GitHub 倉庫：
+   點 Actions（自動化工作流程）→ 左側 Build MAA for macOS 13。
+   點 Run workflow（執行工作流程），Branch（分支）選 main。
+   輸入欄位 core_tag 保留 v6.21.1。
+   點綠色 Run workflow（確認啟動）。
+   不要按舊日誌裡的 Re-run jobs（重新執行舊作業），那會用舊 commit。
+
+5. 點最新一筆 Build MAA for macOS 13：
+   綠色勾號＝完成編譯。頁面下方 Artifacts（產出檔案）下載
+       MAA-macOS13-arm64-candidate（候選 App 壓縮檔）。
+   解壓下載的 artifact，再解壓裡面的 MAA-macOS13-arm64-candidate.zip。
+   得到 MAA.app 後，先在獨立資料夾測試，不要覆蓋官方 App。
+
+   紅色叉號＝本次仍有錯誤。頁面下方 Artifacts（產出檔案）下載
+       build-logs（日誌 ZIP）
+   將完整 ZIP 上傳下一次對話。裡面會有 build.log、core-api-check.txt
+   （若已執行到該階段）、maacore-nm.txt（若已執行到該階段）。
+
+特別說明：如果 core-api-check.txt 表示 v6.21.1 官方二進位檔本身
+沒有 AsstGetMapLevelKey 或 AsstGetItemName，這不是 Swift 的匯入錯誤，
+需要根據該結果調整 GUI／核心 API 使用方式，不能直接假設修完了。
+
+最終版本尚需在 macOS 13.7.4 實機確認 GUI 能打開，以及核心運作正常。
