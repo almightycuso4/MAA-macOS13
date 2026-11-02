@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A5613F010000000000000001 /* MAAMac13Bridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = A5613F020000000000000002 /* MAAMac13Bridge.mm */; };
 		3EB4092748599A93340E9EA0 /* DailyStageTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73E79DFED4846D03780097D7 /* DailyStageTipView.swift */; };
 		830565483042DD6C0077CD3D /* JBird in Frameworks */ = {isa = PBXBuildFile; productRef = 830565473042DD6C0077CD3D /* JBird */; };
 		8307A5CF3030157700A82FF7 /* PixelPainter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8307A5CE3030157600A82FF7 /* PixelPainter.swift */; };
@@ -151,6 +152,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A5613F020000000000000002 /* MAAMac13Bridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MAAMac13Bridge.mm; sourceTree = "<group>"; };
 		73E79DFED4846D03780097D7 /* DailyStageTipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyStageTipView.swift; sourceTree = "<group>"; };
 		8307A5CE3030157600A82FF7 /* PixelPainter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelPainter.swift; sourceTree = "<group>"; };
 		830C3D1D29BC7DE200B13A9F /* CheckForUpdatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckForUpdatesView.swift; sourceTree = "<group>"; };
@@ -371,6 +373,7 @@
 			isa = PBXGroup;
 			children = (
 				8337870128F1D95F00D39D6F /* Maa.swift */,
+				A5613F020000000000000002 /* MAAMac13Bridge.mm */,
 				8383EA2C28F2AF23007DAB9D /* MaaMessage.swift */,
 				8391C9F92B2746FA0047DB20 /* MaaToolClient.swift */,
 				83AAF81930417267003752BD /* MaaToolsClient.swift */,
@@ -645,6 +648,7 @@
 				8355E7B829E9E2B2005D5A1C /* Sidebar.swift in Sources */,
 				83661E2C29F77CFF007793CA /* VideoRecogView.swift in Sources */,
 				8337870228F1D95F00D39D6F /* Maa.swift in Sources */,
+				A5613F010000000000000001 /* MAAMac13Bridge.mm in Sources */,
 				832985B929EF9D50009F7ED5 /* MAAContent.swift in Sources */,
 				830C3D1E29BC7DE200B13A9F /* CheckForUpdatesView.swift in Sources */,
 				832985B029EEF483009F7ED5 /* ReclamationConfiguration.swift in Sources */,

@@ -32,3 +32,10 @@
 **驗證範圍：**在本地 Linux 已使用模擬的 C API 標頭驗證橋接程式能通過 Clang 和 Swift 匯入型別檢查，並檢查 Python/Bash 語法。實際 v6.21.1 的 Apple 專用標頭、Xcode 編譯、動態連結與 macOS 13.7.4 實機運行，仍待下一次 Actions／實機檢驗。
 
 官方來源：<https://github.com/MaaAssistantArknights/MaaAssistantArknights>、<https://github.com/MaaAssistantArknights/MaaMacGui>。
+
+
+## 第五次修補（2026-11-02）
+
+- 修正第四次編譯遇到的 `AsstCallerExtra.h` C 語言函式宣告不可見問題：改用 GUI 內 Objective-C++ 橋接來源，Swift 只讀取純 C 介面。
+- 增加官方 C++ 標頭、C 介面、Swift 匯入的前置檢查與診斷日誌。
+- 這是待 GitHub Actions 編譯及 macOS 13.7.4 實機測試的修正版原始碼，不是已驗證的 App。

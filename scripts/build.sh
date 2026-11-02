@@ -54,6 +54,7 @@ xcodebuild -skipMacroValidation -project src/MaaMacGui/MeoAsstMac.xcodeproj -sch
   -derivedDataPath "$PWD/work/DerivedData" \
   ARCHS=arm64 ONLY_ACTIVE_ARCH=YES MACOSX_DEPLOYMENT_TARGET=13.3 \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+  HEADER_SEARCH_PATHS="$PWD/work/headers" \
   MARKETING_VERSION="${MAA_CORE_TAG#v}" CURRENT_PROJECT_VERSION=1 \
   build
 candidate="$PWD/work/DerivedData/Build/Products/Release/MAA.app"

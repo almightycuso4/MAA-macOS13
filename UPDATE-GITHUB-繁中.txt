@@ -1,67 +1,58 @@
-MAA v6.21.1 / macOS 13 第四次編譯：GitHub Desktop 更新教學
+MAA v6.21.1 / Apple Silicon macOS 13.7.4：第五次 GitHub 更新步驟
 
-本次只需更新既有倉庫，不需建立新倉庫，也不需要在 Mac 安裝 Xcode。
+一、這次修正甚麼
+第四次日誌顯示：官方核心的兩個函式均有 arm64 匯出符號，但
+AsstCallerExtra.h 透過 C 語言編譯時沒有公開兩個函式宣告，
+導致 core-c-import-check.txt 出現四個錯誤。
+第五版新增 Objective-C++ 橋接檔，讓 Swift 使用可匯入的 C 介面，
+並在正式編譯前驗證官方標頭能否在 C++ 模式使用。
 
-一、下載和解壓
+二、下載與解壓縮
+1. 下載 MAA-macOS13-fifth-build-patch.zip。
+2. 把下載檔放在 macOS 的「下載 (Downloads)」資料夾。
+3. 在 Finder 雙擊該 ZIP，應看到 MAA-macOS13-fifth-build-patch 資料夾，
+   其中有 MAA-macOS13 這層資料夾。
 
-1. 下載 MAA-macOS13-fourth-build-patch.zip。
-2. 在「下載」資料夾雙擊 ZIP 解壓，得到資料夾
-   MAA-macOS13-fourth-build-patch，其中包含 MAA-macOS13。
-   這是原始碼，不是可執行的 MAA.app。
+三、更新既有 GitHub 倉庫（不必建立新倉庫）
+1. 開啟 GitHub Desktop。
+2. 左上 Current Repository（目前倉庫）：選 MAA-macOS13。
+3. 上方 Current Branch（目前分支）：選 main。
+4. 按 Fetch origin（取得遠端更新）。
+   若出現 Pull origin（拉取遠端更新），先按 Pull origin。
+5. 上方選單 Repository（倉庫）→ Open in Terminal（在終端機開啟）。
+6. 複製下面這一整行指令，貼上後按 Return：
 
-二、在 GitHub Desktop 同步和覆蓋原始碼
+   ditto "$HOME/Downloads/MAA-macOS13-fifth-build-patch/MAA-macOS13" .
 
-1. 開啟 GitHub Desktop。左上 Current Repository（目前倉庫）選 MAA-macOS13。
-2. 上方 Current Branch（目前分支）選 main。
-3. 先按 Fetch origin（取得遠端更新）；如果出現 Pull origin（拉取遠端更新），
-   再按 Pull origin。這步可避免你之前碰過的「Newer Commits on Remote」。
-   若出現 Resolve conflicts（解決衝突），停止合併並提供畫面，不要強制推送。
-4. 上方選單 Repository（倉庫）→ Open in Terminal（在終端機開啟）。
-5. 將下列整行貼進終端機後按 Return（Enter）：
+   最後的空格與英文句點是必要的，代表覆蓋目前開啟的倉庫。
+   注意：此指令只合併／覆蓋修補包內的檔案，不會刪掉整個倉庫。
+   如果解壓後資料夾名稱不相同，需將引號內的來源路徑調整為實際路徑。
+7. 回 GitHub Desktop，點左側 Changes（變更）。應至少看到：
+   scripts/prepare_core_headers.py（修改）
+   scripts/build.sh（修改）
+   src/MaaMacGui/MeoAsstMac/Core/MAAMac13Bridge.mm（新增）
+   src/MaaMacGui/MeoAsstMac.xcodeproj/project.pbxproj（修改）
+   FIFTH-BUILD-NOTES-繁中.txt（新增）
+8. 左下 Summary（提交摘要）輸入：Fix MaaCore extra API C++ bridge
+9. 點 Commit to main（提交到 main 分支）。
+10. 點 Push origin（推送至 GitHub）。
+    若彈出 Newer Commits on Remote（遠端有新提交），先 Fetch，
+    再 Pull origin，最後重新 Push origin。不要 Force push（強制推送）。
+    如果有 Resolve conflicts（解決衝突），先停止並提供截圖。
 
-   ditto "$HOME/Downloads/MAA-macOS13-fourth-build-patch/MAA-macOS13" .
-
-   注意最末尾是空格加英文句點「 . 」，代表目前倉庫。
-   指令逐檔合併／覆蓋，不會整個刪掉 src、scripts 目錄。
-   若下載位置不是 Downloads，請把 Finder 中解壓後的 MAA-macOS13
-   資料夾拖進終端機以取得完整路徑，取代上面第一個引號內的路徑。
-6. 回到 GitHub Desktop 左側 Changes（變更），應看到以下修改：
-   scripts/prepare_core_headers.py
-   src/MaaMacGui/MeoAsstMac/Core/Maa.swift
-   README.md、UPDATE-GITHUB-繁中.txt、GUI-changes.diff（說明／差異檔）。
-7. 左下 Summary（提交摘要）輸入：Fix Swift import of MaaCore extra APIs
-8. 點 Commit to main（提交到 main 分支）。
-9. 點 Push origin（推送到遠端）。
-   如果再次出現 Newer Commits on Remote（遠端有更新提交），
-   點 Fetch（取得）、回主畫面 Pull origin（拉取），再 Push origin。
-   不要按 Force push（強制推送）。
-
-三、在 GitHub 網頁啟動第四次編譯
-
-1. 瀏覽器進入既有 MAA-macOS13 GitHub 倉庫。
-2. 上方 Actions（自動化工作流程）。
-3. 左側 Build MAA for macOS 13（macOS 13 建置工作流程）。
-4. 右側 Run workflow（執行工作流程）。
-5. Branch（分支）選 main，core_tag 填 v6.21.1。
+四、啟動第五次 GitHub Actions 編譯
+1. 瀏覽器開啟你原本的 MAA-macOS13 GitHub 倉庫。
+2. 點 Actions（自動化工作流程）。
+3. 點左側 Build MAA for macOS 13。
+4. 點右側 Run workflow（執行工作流程）。
+5. Branch（分支）選 main，core_tag（核心標籤）填 v6.21.1。
 6. 按綠色 Run workflow（確認執行）。
-   這次應該新增執行紀錄；不要對舊紀錄按 Re-run jobs（重新執行舊工作）。
+   這次要建立新的執行紀錄；勿按舊紀錄的 Re-run jobs（重跑舊提交）。
 
-四、檢視結果
+五、確認結果
+若出現綠色勾號：下載 Artifacts（產出檔案）中的
+MAA-macOS13-arm64-candidate，解壓後在 macOS 13.7.4 測試。
+若出現紅色叉號：下載 Artifacts 中的 build-logs ZIP 並上傳。
+本版新增加：core-cxx-bridge-check.txt 與 core-extra-header.txt。
 
-綠色勾號＝已編譯並打包。
-  點執行紀錄，下方 Artifacts（產出檔案）下載
-  MAA-macOS13-arm64-candidate。先解壓 artifact，
-  再解壓裡面的 App ZIP，得到 MAA.app，在獨立資料夾測試。
-
-紅色叉號＝仍有編譯或建置錯誤。
-  點執行紀錄，下方 Artifacts（產出檔案）下載 build-logs，
-  上傳完整 ZIP。這次新增：
-    core-c-import-check.txt：C 橋接的語法檢查。
-    core-swift-import-check.txt：Swift 能否讀到 C 橋接。
-  若未執行到該階段，這兩個檔案可能不存在，build.log 仍會保留。
-
-五、實機驗證
-
-編譯成功不等於已確認 macOS 13.7.4 可用。先備份原本設定，
-把新 MAA.app 放在另一資料夾啟動，不要直接取代既有版本。
-依序檢查 GUI 啟動、設定、核心資源、連線、任務及日誌。
+注意：修補包是原始碼，不是可執行 MAA.app；目前尚未完成實機驗證。
