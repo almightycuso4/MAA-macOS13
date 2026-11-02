@@ -30,10 +30,12 @@ actor MAAProvider {
     }
 
     func mapLevelCode(matching key: String) -> String? {
-        let mapLevelKey = key.withCString {
-            AsstGetMapLevelKey($0)
+        // Bridge the extension API through a C-inline helper exposing
+        // a Swift-importable pointer while retaining the upstream ABI.
+        let code = key.withCString {
+            MAAMac13GetMapLevelCode($0)
         }
-        guard let code = mapLevelKey.code else {
+        guard let code else {
             return nil
         }
         return String(cString: code)
@@ -41,7 +43,7 @@ actor MAAProvider {
 
     func itemName(for id: String) -> String {
         let name = id.withCString {
-            AsstGetItemName($0)
+            MAAMac13GetItemName($0)
         }
         guard let name else { return "" }
         return String(cString: name)

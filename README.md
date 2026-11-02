@@ -1,35 +1,34 @@
 # MAA v6.21.1 / macOS 13 ARM64 相容移植
 
-**狀態：第三次雲端編譯候選原始碼；尚未經 Xcode、macOS 13 真機驗證，不是已編譯的 App。**
+**狀態：第四次雲端編譯候選原始碼；尚未通過 GitHub Actions 編譯及 macOS 13 真機測試。不是可直接執行的 MAA.app。**
 
-目標機：Apple Silicon、macOS 13.7.4（22H420），不升級系統。最低部署版本為 macOS 13.3，官方核心、資源與 C 標頭固定同一 `core_tag`（預設 `v6.21.1`），保留原本 GitHub Actions 雲端建置方式。不要把本包覆蓋到已安裝的 MAA.app。
+目標：Apple Silicon、macOS 13.7.4，不升級系統。沿用官方 v6.21.1 核心、同版本資源與標頭；GUI 使用 GitHub Actions macos-26／Xcode 26 編譯，部署目標設為 macOS 13.3。
 
-## 針對第二次日誌的修補
+## 第三次編譯日誌：實際發現
 
-1. `LogStore` 協定中誤加的 `@Published` 已移除，模型自身的 `@Published` 保留。
-2. 原 `UserDefaults+KVO.swift` 中 macOS 14 `ObservationRegistrar` 已撤除。唯一使用者 `CopilotContext.category` 現改為 `@Published`，沿用 `CopilotContentCategory` 偏好設定鍵；啟動時恢復分類、切換時儲存，並監看 `UserDefaults.didChangeNotification` 通知後同步 UI。原檔在 Xcode 專案中保留說明註解，避免遺留檔案參照。
-3. `CapsulePicker` 改以 macOS 13 存在的 `NSColor.controlBackgroundColor` 處理未選取狀態，保留系統明暗模式。
-4. `CheckForUpdatesView` 不再訂閱 Sparkle 的 `canCheckForUpdates`，維持停用程式更新；資源更新不受影響。
-5. **核心 API 原因仍待實際確認**。建置階段執行 `scripts/prepare_core_headers.py`：從**同版本**核心原始碼的 `include` 找出 `AsstGetMapLevelKey` / `AsstGetItemName` 所在 C 標頭，產生 module umbrella header，並以 `nm -arch arm64 -gU` 確認官方 `libMaaCore.dylib` 有這兩個匯出符號。若沒有標頭或符號，將在此階段直接失敗並寫入 `logs/core-api-check.txt` / `logs/maacore-nm.txt`，不會偽造宣告，也不會改用不相容核心。
+第三次日誌只剩兩個 Swift 編譯錯誤，均位於 `MeoAsstMac/Core/Maa.swift`：
 
-## 編譯入口
+- `AsstGetMapLevelKey` 未匯入 Swift（原第 34 行）。
+- `AsstGetItemName` 未匯入 Swift（原第 44 行）。
 
-已存在的倉庫不必重建。依 `UPDATE-GITHUB-繁中.txt` 更新檔案，從 GitHub 網頁手動執行：
+`logs/core-api-check.txt` 已證實**兩者均在官方 v6.21.1 的 `AsstCallerExtra.h` 中有宣告，並由 arm64 `libMaaCore.dylib` 匯出**。問題位於 C→Swift 介面，不需要升級 macOS 或更換核心。`MaaCore` module umbrella 已包含 AsstCallerExtra.h；仍無法直接在 Swift 找到兩個函式，因此上一版單純增加標頭的修正不足。
 
-`Actions` → `Build MAA for macOS 13` → `Run workflow` → `core_tag=v6.21.1` → `Run workflow`。
+## 第四次修正
 
-- 綠色成功：下載 `MAA-macOS13-arm64-candidate`，解壓 artifact 再解壓內層 ZIP 得到 `MAA.app`。
-- 紅色失敗：下載 `build-logs` ZIP，**不只**複製網頁錯誤文字；其中含 `build.log` 及核心 API 診斷檔。
-- 建置使用 `macos-26` 與 Xcode 26；本地 macOS 13 不用安裝 Xcode。`-skipMacroValidation` 已保留，避免重遇第一次宏信任失敗。
+1. `scripts/prepare_core_headers.py` 從官方標頭產生 `MAAMac13Bridge.h`：兩個 `static inline` C 函式呼叫真正的 `AsstGetMapLevelKey` 與 `AsstGetItemName`，提供 Swift 容易匯入的 `const char *` 回傳值，不偽造官方符號及宣告。
+2. `Maa.swift` 透過 `MAAMac13GetMapLevelCode` / `MAAMac13GetItemName` 呼叫相容介面，保留原本查詢關卡代碼、物品名稱的業務行為。
+3. Module umbrella 同時包含 `MaaCore.h`（若官方標頭存在），消除缺少該 header 的警告。
+4. **在 Xcode 編譯 GUI 之前**新增 Clang C 語法與 Swift 匯入型別檢查，失敗時記錄 `core-c-import-check.txt` 或 `core-swift-import-check.txt` 供精確修正。
 
-## 能力邊界
+上次已修復的 Combine／協定／macOS 13 顏色相容問題均保留。未啟用官方 Sparkle 程式更新入口。
 
-Linux 上已通過 Swift parser 靜態語法檢查（非型別檢查）、Bash `-n`、Python 語法及核心檢查腳本的模擬測試；**未能下載 v6.21.1 的標頭或實際 dylib、無法在此環境執行 Xcode，也沒有實機測試結果**。即使未再出現第二次編譯錯誤，仍需檢查 Swift 型別、連結、最低部署版本、簽名與 macOS 13.7.4 真機的啟動、連線和作業。
+## 編譯、回報與驗證
 
-本版本和官方版沿用 Bundle ID；真機測試前先備份原設定，在不同資料夾啟動，避免直接覆蓋原有的 App。
+請依 `UPDATE-GITHUB-繁中.txt` 把修補檔合併至**原有** GitHub 倉庫。不要重新建立倉庫。新建一筆 Actions workflow run（`core_tag=v6.21.1`），不要對舊執行結果按 `Re-run jobs`。
 
-官方來源：
-- https://github.com/MaaAssistantArknights/MaaAssistantArknights
-- https://github.com/MaaAssistantArknights/MaaMacGui
+- 綠色成功：在 `Artifacts` 下載 `MAA-macOS13-arm64-candidate`，解壓後在 macOS 13.7.4 實機測試；先備份設定，勿覆蓋現有 MAA.app。
+- 紅色失敗：在 `Artifacts` 下載 `build-logs` ZIP，上傳完整檔案。會含 `build.log`、核心 API 檢查、nm 匯出符號、C／Swift 匯入診斷（執行到該步驟時）。
 
-完整 GUI 變更差異見 `GUI-changes.diff`。
+**驗證範圍：**在本地 Linux 已使用模擬的 C API 標頭驗證橋接程式能通過 Clang 和 Swift 匯入型別檢查，並檢查 Python/Bash 語法。實際 v6.21.1 的 Apple 專用標頭、Xcode 編譯、動態連結與 macOS 13.7.4 實機運行，仍待下一次 Actions／實機檢驗。
+
+官方來源：<https://github.com/MaaAssistantArknights/MaaAssistantArknights>、<https://github.com/MaaAssistantArknights/MaaMacGui>。

@@ -52,13 +52,34 @@ print('\n'.join(lines), flush=True)
 if issues:
     raise SystemExit('Core / GUI API mismatch at the chosen release: ' + '; '.join(issues))
 
-included = {Path('AsstCaller.h')}
+# A function present in a Clang header is not necessarily importable by Swift:
+# if a result uses a type the importer cannot represent, Swift can hide the
+# entire declaration. A C-inline adapter exposes only simple pointer types,
+# while using the upstream C declaration and ABI without guessing signatures.
+# The C compiler validates this adapter, and Swift typechecking validates its
+# import before the expensive full GUI build.
+bridge = headers / 'MAAMac13Bridge.h'
+bridge.write_text("""// Generated for Swift import of v6.21.1 Core extra APIs.
+#pragma once
+#include \"AsstCallerExtra.h\"
+static inline const char *MAAMac13GetMapLevelCode(const char *key) {
+    return AsstGetMapLevelKey(key).code;
+}
+static inline const char *MAAMac13GetItemName(const char *id) {
+    return AsstGetItemName(id);
+}
+""")
+
+# Including MaaCore.h also silences Clang's missing-umbrella warning. Include
+# real release headers, never synthetic prototypes for upstream symbols.
+included = {Path('AsstCaller.h'), Path('AsstCallerExtra.h'), Path('MAAMac13Bridge.h')}
+if (headers / 'MaaCore.h').is_file():
+    included.add(Path('MaaCore.h'))
 for hits in results.values():
     included.update(p.relative_to(headers) for p in hits if p.suffix == '.h')
     if all(p.suffix != '.h' for p in hits):
         raise SystemExit('C API found only in C++ headers; not safe to import into Swift')
 
-# Explicit headers avoid Swift importing unrelated C++ headers from the source tree.
 umbrella = headers / 'MAAModuleUmbrella.h'
 umbrella.write_text(
     '// Generated from the official release public headers.\n'
@@ -70,4 +91,40 @@ umbrella.write_text(
     '    export *\n'
     '}\n'
 )
+
+# Stop before GUI compilation if the extension header is not C-callable or
+# Swift cannot import the adapter. Save full diagnostics to build-logs.
+probe_c = logs / 'core-api-probe.c'
+probe_c.write_text(
+    '#include "MAAMac13Bridge.h"\n'
+    'const char *maa_map(const char *x) { return MAAMac13GetMapLevelCode(x); }\n'
+    'const char *maa_name(const char *x) { return MAAMac13GetItemName(x); }\n'
+)
+probe_swift = logs / 'core-api-probe.swift'
+probe_swift.write_text(
+    'import MaaCore\n'
+    'func maaMap(_ key: String) -> String? {\n'
+    '    let ptr = key.withCString { MAAMac13GetMapLevelCode($0) }\n'
+    '    return ptr.map { String(cString: $0) }\n'
+    '}\n'
+    'func maaName(_ key: String) -> String? {\n'
+    '    let ptr = key.withCString { MAAMac13GetItemName($0) }\n'
+    '    return ptr.map { String(cString: $0) }\n'
+    '}\n'
+)
+for log_name, cmd in [
+    ('core-c-import-check.txt', ['clang', '-x', 'c', '-std=c11', '-fsyntax-only',
+                                   '-I', str(headers), str(probe_c)]),
+    ('core-swift-import-check.txt', ['swiftc', '-typecheck', '-target',
+                                       'arm64-apple-macos13.3', '-I', str(headers),
+                                       str(probe_swift)]),
+]:
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    (logs / log_name).write_text(
+        '$ ' + ' '.join(cmd) + '\n' + result.stdout + result.stderr
+        + f'\nExit code: {result.returncode}\n'
+    )
+    if result.returncode:
+        raise SystemExit(f'{log_name} failed; inspect attached build-logs')
+    print(f'{log_name}: PASS', flush=True)
 print('Clang module umbrella headers:', *(str(p) for p in sorted(included)), sep='\n  ')

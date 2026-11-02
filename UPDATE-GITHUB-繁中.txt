@@ -1,62 +1,67 @@
-MAA v6.21.1 / macOS 13 第三次編譯：GitHub Desktop 更新步驟
+MAA v6.21.1 / macOS 13 第四次編譯：GitHub Desktop 更新教學
 
-你已經建立 GitHub 倉庫並且做過兩次編譯，不需要再建新倉庫。
+本次只需更新既有倉庫，不需建立新倉庫，也不需要在 Mac 安裝 Xcode。
 
-0. 先下載 MAA-macOS13-third-build-patch.zip 並解壓到「下載」資料夾。
-   解壓後會看到 MAA-macOS13-third-build-patch 資料夾。
-   這是「原始碼修補檔」，不是可直接打開的 MAA.app。
+一、下載和解壓
 
-1. 打開 GitHub Desktop（GitHub 桌面版）。
-   左上角 Current Repository（目前倉庫）選你已建立的「MAA-macOS13」。
-   上方 Current Branch（目前分支）確認是 main。
-   若上方有 Fetch origin（檢查遠端更新），先按；
-   若變成 Pull origin（下載遠端更新），先按它，同步網頁上做過的修改。
+1. 下載 MAA-macOS13-fourth-build-patch.zip。
+2. 在「下載」資料夾雙擊 ZIP 解壓，得到資料夾
+   MAA-macOS13-fourth-build-patch，其中包含 MAA-macOS13。
+   這是原始碼，不是可執行的 MAA.app。
 
-2. Mac 的 Finder（訪達）打開修補包內的 MAA-macOS13 資料夾，
-   會看到 README.md、GUI-changes.diff、scripts、src。
-   回 GitHub Desktop 選選單 Repository（倉庫）→ Show in Finder（在訪達顯示）。
+二、在 GitHub Desktop 同步和覆蓋原始碼
 
-   建議用下列終端指令覆蓋「檔案」，而不是直接在 Finder 裡選 Replace 整個 src 資料夾：
+1. 開啟 GitHub Desktop。左上 Current Repository（目前倉庫）選 MAA-macOS13。
+2. 上方 Current Branch（目前分支）選 main。
+3. 先按 Fetch origin（取得遠端更新）；如果出現 Pull origin（拉取遠端更新），
+   再按 Pull origin。這步可避免你之前碰過的「Newer Commits on Remote」。
+   若出現 Resolve conflicts（解決衝突），停止合併並提供畫面，不要強制推送。
+4. 上方選單 Repository（倉庫）→ Open in Terminal（在終端機開啟）。
+5. 將下列整行貼進終端機後按 Return（Enter）：
 
-   在 GitHub Desktop 選單 Repository（倉庫）→ Open in Terminal（在終端機打開），
-   或者 Finder 打開倉庫目錄後，右鍵倉庫資料夾 → 服務 → 新增位於檔案夾位置的終端機視窗。
+   ditto "$HOME/Downloads/MAA-macOS13-fourth-build-patch/MAA-macOS13" .
 
-   確認終端機已在 MAA-macOS13 倉庫根目錄，執行：
+   注意最末尾是空格加英文句點「 . 」，代表目前倉庫。
+   指令逐檔合併／覆蓋，不會整個刪掉 src、scripts 目錄。
+   若下載位置不是 Downloads，請把 Finder 中解壓後的 MAA-macOS13
+   資料夾拖進終端機以取得完整路徑，取代上面第一個引號內的路徑。
+6. 回到 GitHub Desktop 左側 Changes（變更），應看到以下修改：
+   scripts/prepare_core_headers.py
+   src/MaaMacGui/MeoAsstMac/Core/Maa.swift
+   README.md、UPDATE-GITHUB-繁中.txt、GUI-changes.diff（說明／差異檔）。
+7. 左下 Summary（提交摘要）輸入：Fix Swift import of MaaCore extra APIs
+8. 點 Commit to main（提交到 main 分支）。
+9. 點 Push origin（推送到遠端）。
+   如果再次出現 Newer Commits on Remote（遠端有更新提交），
+   點 Fetch（取得）、回主畫面 Pull origin（拉取），再 Push origin。
+   不要按 Force push（強制推送）。
 
-   ditto "$HOME/Downloads/MAA-macOS13-third-build-patch/MAA-macOS13" .
+三、在 GitHub 網頁啟動第四次編譯
 
-   此指令只會合併／覆蓋修補包提供的個別檔案，不會刪掉其他專案原始碼。
-   如果 Safari 把 ZIP 解壓到其他位置，請在 Finder 將解壓後的 MAA-macOS13 資料夾
-   拖進終端機，自動填入完整路徑（放在 ditto 的第一個參數位置）。
+1. 瀏覽器進入既有 MAA-macOS13 GitHub 倉庫。
+2. 上方 Actions（自動化工作流程）。
+3. 左側 Build MAA for macOS 13（macOS 13 建置工作流程）。
+4. 右側 Run workflow（執行工作流程）。
+5. Branch（分支）選 main，core_tag 填 v6.21.1。
+6. 按綠色 Run workflow（確認執行）。
+   這次應該新增執行紀錄；不要對舊紀錄按 Re-run jobs（重新執行舊工作）。
 
-3. 回到 GitHub Desktop：
-   Changes（變更）頁面應看到修改的 Swift 原始碼、build.sh、README、
-   GUI-changes.diff，以及新增的 prepare_core_headers.py。
-   左下角 Summary（提交摘要）輸入：Fix macOS 13 Swift build errors
-   按 Commit to main（提交到 main 分支）。
-   上方按 Push origin（推送到 GitHub 遠端）。
-   重要：只按 Commit 不等於已上傳，要再按 Push origin。
+四、檢視結果
 
-4. 在瀏覽器打開自己 GitHub 倉庫：
-   點 Actions（自動化工作流程）→ 左側 Build MAA for macOS 13。
-   點 Run workflow（執行工作流程），Branch（分支）選 main。
-   輸入欄位 core_tag 保留 v6.21.1。
-   點綠色 Run workflow（確認啟動）。
-   不要按舊日誌裡的 Re-run jobs（重新執行舊作業），那會用舊 commit。
+綠色勾號＝已編譯並打包。
+  點執行紀錄，下方 Artifacts（產出檔案）下載
+  MAA-macOS13-arm64-candidate。先解壓 artifact，
+  再解壓裡面的 App ZIP，得到 MAA.app，在獨立資料夾測試。
 
-5. 點最新一筆 Build MAA for macOS 13：
-   綠色勾號＝完成編譯。頁面下方 Artifacts（產出檔案）下載
-       MAA-macOS13-arm64-candidate（候選 App 壓縮檔）。
-   解壓下載的 artifact，再解壓裡面的 MAA-macOS13-arm64-candidate.zip。
-   得到 MAA.app 後，先在獨立資料夾測試，不要覆蓋官方 App。
+紅色叉號＝仍有編譯或建置錯誤。
+  點執行紀錄，下方 Artifacts（產出檔案）下載 build-logs，
+  上傳完整 ZIP。這次新增：
+    core-c-import-check.txt：C 橋接的語法檢查。
+    core-swift-import-check.txt：Swift 能否讀到 C 橋接。
+  若未執行到該階段，這兩個檔案可能不存在，build.log 仍會保留。
 
-   紅色叉號＝本次仍有錯誤。頁面下方 Artifacts（產出檔案）下載
-       build-logs（日誌 ZIP）
-   將完整 ZIP 上傳下一次對話。裡面會有 build.log、core-api-check.txt
-   （若已執行到該階段）、maacore-nm.txt（若已執行到該階段）。
+五、實機驗證
 
-特別說明：如果 core-api-check.txt 表示 v6.21.1 官方二進位檔本身
-沒有 AsstGetMapLevelKey 或 AsstGetItemName，這不是 Swift 的匯入錯誤，
-需要根據該結果調整 GUI／核心 API 使用方式，不能直接假設修完了。
-
-最終版本尚需在 macOS 13.7.4 實機確認 GUI 能打開，以及核心運作正常。
+編譯成功不等於已確認 macOS 13.7.4 可用。先備份原本設定，
+把新 MAA.app 放在另一資料夾啟動，不要直接取代既有版本。
+依序檢查 GUI 啟動、設定、核心資源、連線、任務及日誌。

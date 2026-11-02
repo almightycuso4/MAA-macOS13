@@ -1,3 +1,23 @@
+--- a/MeoAsstMac.xcodeproj/project.pbxproj
++++ b/MeoAsstMac.xcodeproj/project.pbxproj
+@@ -778,7 +778,7 @@
+ 				GCC_WARN_UNUSED_FUNCTION = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+-				MACOSX_DEPLOYMENT_TARGET = 14.0;
++				MACOSX_DEPLOYMENT_TARGET = 13.3;
+ 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+ 				MTL_FAST_MATH = YES;
+ 				ONLY_ACTIVE_ARCH = YES;
+@@ -869,7 +869,7 @@
+ 				GCC_WARN_UNUSED_FUNCTION = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+-				MACOSX_DEPLOYMENT_TARGET = 14.0;
++				MACOSX_DEPLOYMENT_TARGET = 13.3;
+ 				MTL_ENABLE_DEBUG_INFO = NO;
+ 				MTL_FAST_MATH = YES;
+ 				SDKROOT = macosx;
 --- a/MeoAsstMac/Configuration Views/RoguelikeSettingsView.swift
 +++ b/MeoAsstMac/Configuration Views/RoguelikeSettingsView.swift
 @@ -201,6 +201,7 @@
@@ -16,6 +36,34 @@
  
  // MARK: - Constants
  
+--- a/MeoAsstMac/Core/Maa.swift
++++ b/MeoAsstMac/Core/Maa.swift
+@@ -30,10 +30,12 @@
+     }
+ 
+     func mapLevelCode(matching key: String) -> String? {
+-        let mapLevelKey = key.withCString {
+-            AsstGetMapLevelKey($0)
+-        }
+-        guard let code = mapLevelKey.code else {
++        // Bridge the extension API through a C-inline helper exposing
++        // a Swift-importable pointer while retaining the upstream ABI.
++        let code = key.withCString {
++            MAAMac13GetMapLevelCode($0)
++        }
++        guard let code else {
+             return nil
+         }
+         return String(cString: code)
+@@ -41,7 +43,7 @@
+ 
+     func itemName(for id: String) -> String {
+         let name = id.withCString {
+-            AsstGetItemName($0)
++            MAAMac13GetItemName($0)
+         }
+         guard let name else { return "" }
+         return String(cString: name)
 --- a/MeoAsstMac/Main Menu/CheckForUpdatesView.swift
 +++ b/MeoAsstMac/Main Menu/CheckForUpdatesView.swift
 @@ -1,41 +1,14 @@
@@ -1148,23 +1196,3 @@
                  if $1 {
                      onEnabled()
                  }
---- a/MeoAsstMac.xcodeproj/project.pbxproj
-+++ b/MeoAsstMac.xcodeproj/project.pbxproj
-@@ -778,7 +778,7 @@
- 				GCC_WARN_UNUSED_FUNCTION = YES;
- 				GCC_WARN_UNUSED_VARIABLE = YES;
- 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
--				MACOSX_DEPLOYMENT_TARGET = 14.0;
-+				MACOSX_DEPLOYMENT_TARGET = 13.3;
- 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
- 				MTL_FAST_MATH = YES;
- 				ONLY_ACTIVE_ARCH = YES;
-@@ -869,7 +869,7 @@
- 				GCC_WARN_UNUSED_FUNCTION = YES;
- 				GCC_WARN_UNUSED_VARIABLE = YES;
- 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
--				MACOSX_DEPLOYMENT_TARGET = 14.0;
-+				MACOSX_DEPLOYMENT_TARGET = 13.3;
- 				MTL_ENABLE_DEBUG_INFO = NO;
- 				MTL_FAST_MATH = YES;
- 				SDKROOT = macosx;
