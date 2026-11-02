@@ -50,7 +50,7 @@ for name,pattern in [('MaaCore','libMaaCore.dylib'),('MaaUtils','libMaaUtils.dyl
 PY
 # A current GUI plus an older core can have an API mismatch; stop on compile/link
 # errors rather than constructing an app from mismatched declarations.
-xcodebuild -project src/MaaMacGui/MeoAsstMac.xcodeproj -scheme MAA \
+xcodebuild -skipMacroValidation -project src/MaaMacGui/MeoAsstMac.xcodeproj -scheme MAA \
   -configuration Release -destination 'generic/platform=macOS' \
   -derivedDataPath "$PWD/work/DerivedData" \
   ARCHS=arm64 ONLY_ACTIVE_ARCH=YES MACOSX_DEPLOYMENT_TARGET=13.3 \
