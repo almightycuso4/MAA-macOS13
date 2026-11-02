@@ -1,0 +1,39 @@
+name: Build MAA for macOS 13
+on:
+  workflow_dispatch:
+    inputs:
+      core_tag:
+        description: 'Official MAA release supplying runtime and matching headers'
+        default: v6.21.1
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build compatibility candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAA_CORE_TAG: ${{ inputs.core_tag }}
+        run: |
+          mkdir -p logs
+          set -o pipefail
+          bash scripts/build.sh 2>&1 | tee logs/build.log
+      - name: Retain logs and dependency versions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            logs/
+            src/MaaMacGui/MeoAsstMac.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+      - name: Upload application candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: MAA-macOS13-arm64-candidate
+          path: output/*.zip
+          if-no-files-found: error

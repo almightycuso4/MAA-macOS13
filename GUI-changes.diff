@@ -1,0 +1,878 @@
+--- a/MeoAsstMac/Configuration Views/RoguelikeSettingsView.swift
++++ b/MeoAsstMac/Configuration Views/RoguelikeSettingsView.swift
+@@ -201,6 +201,7 @@
+     }
+ }
+ 
++#if MAA_ENABLE_PREVIEWS
+ #Preview {
+     struct Preview: View {
+         @State var config = RoguelikeConfiguration()
+@@ -210,6 +211,7 @@
+     }
+     return Preview()
+ }
++#endif
+ 
+ // MARK: - Constants
+ 
+--- a/MeoAsstMac/MeoAsstMacApp.swift
++++ b/MeoAsstMac/MeoAsstMacApp.swift
+@@ -12,7 +12,7 @@
+ struct MeoAsstMacApp: App {
+     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
+     @StateObject private var appViewModel: MAAViewModel
+-    @State private var newViewModel: NewViewModel
++    @StateObject private var newViewModel: NewViewModel
+ 
+     private let updaterController: SPUStandardUpdaterController
+     private let updaterDelegate = MaaUpdaterDelegate()
+@@ -21,13 +21,8 @@
+         let viewModel = MAAViewModel()
+         let newModel = NewViewModel(parent: viewModel)
+         _appViewModel = StateObject(wrappedValue: viewModel)
+-        _newViewModel = State(wrappedValue: newModel)
+-        #if DEBUG
+-        let isRelease = false
+-        #else
+-        let isRelease = true
+-        #endif
+-        updaterController = .init(startingUpdater: isRelease, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
++        _newViewModel = StateObject(wrappedValue: newModel)
++        updaterController = .init(startingUpdater: false, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
+         appDelegate.beforeTermination = {
+             await newModel.waitLogStoreToFinish()
+         }
+@@ -37,7 +32,7 @@
+         WindowGroup {
+             ContentView()
+                 .environmentObject(appViewModel)
+-                .environment(newViewModel)
++                .environmentObject(newViewModel)
+                 .onAppear {
+                     TaskTimerManager.shared.connectToModel(viewModel: appViewModel)
+                 }
+@@ -46,9 +41,8 @@
+             CommandGroup(replacing: .newItem) {
+                 OpenLogFileView()
+             }
+-            CommandGroup(after: .appInfo) {
+-                CheckForUpdatesView(updater: updaterController.updater)
+-            }
++            // Binary updates point to upstream macOS 14+ builds.
++            // Resource updates remain available from the sidebar.
+             SidebarCommands()
+             TaskCommands(viewModel: appViewModel)
+         }
+@@ -64,6 +58,7 @@
+                     .tabItem {
+                         Label("游戏设置", systemImage: "gamecontroller")
+                     }
++
+ 
+                 UpdaterSettingsView(updater: updaterController.updater)
+                     .tabItem {
+@@ -117,3 +112,40 @@
+         true
+     }
+ }
++
++// macOS 13 equivalent of the two-value onChange API introduced in macOS 14.
++extension View {
++    func maaOnChange<Value: Equatable>(of value: Value, initial: Bool = false,
++        _ action: @escaping (Value, Value) -> Void) -> some View {
++        modifier(MAAChangeObserver(value: value, initial: initial, action: action))
++    }
++}
++
++private struct MAAChangeObserver<Value: Equatable>: ViewModifier {
++    let value: Value
++    let initial: Bool
++    let action: (Value, Value) -> Void
++    @State private var previous: Value
++    @State private var appeared = false
++
++    init(value: Value, initial: Bool, action: @escaping (Value, Value) -> Void) {
++        self.value = value
++        self.initial = initial
++        self.action = action
++        _previous = State(initialValue: value)
++    }
++
++    func body(content: Content) -> some View {
++        content.onAppear {
++            if !appeared {
++                appeared = true
++                previous = value
++                if initial { action(value, value) }
++            }
++        }.onChange(of: value) { newValue in
++            let oldValue = previous
++            previous = newValue
++            action(oldValue, newValue)
++        }
++    }
++}
+--- a/MeoAsstMac/Model/NewViewModel.swift
++++ b/MeoAsstMac/Model/NewViewModel.swift
+@@ -7,16 +7,15 @@
+ 
+ import Combine
+ import Foundation
+-import Observation
+ 
+ // TODO: Mirgrate all bridges
+-@Observable final class NewViewModel {
++final class NewViewModel: ObservableObject {
+     private(set) var copilot = CopilotContext()
+ 
+     /// A unique token that changes whenever a copilot task starts.
+     ///
+     /// Observe changes to this value to detect the start of a copilot task.
+-    private(set) var copilotStartToken: UUID?
++    @Published private(set) var copilotStartToken: UUID?
+ 
+     /// The progress of the current copilot download.
+     ///
+@@ -24,12 +23,12 @@
+     /// Progress is updated only for copilot sets, based on the number of copilots downloaded.
+     ///
+     /// Cancellation is not currently supported.
+-    private(set) var copilotDownloadProgress: Progress?
++    @Published private(set) var copilotDownloadProgress: Progress?
+ 
+     /// The URL of the most recently imported copilot.
+     ///
+     /// Observe this value to update and select the corresponding list entry after an import.
+-    var lastImportedCopilot: URL?
++    @Published var lastImportedCopilot: URL?
+ 
+     // MARK: - Log
+ 
+@@ -46,41 +45,44 @@
+         let finished: Bool?
+     }
+ 
+-    private(set) var logs = [MAALog]()
+-    var trackTail = false
+-    @ObservationIgnored private var logStoreContinuation: AsyncStream<MAALog>.Continuation?
+-    @ObservationIgnored private var logStoreTask: Task<Void, Never>?
+-
+-    var screencapCost: (min: Int, max: Int, avg: Int)?
+-    @ObservationIgnored var lastScreencapWarningLevel = 0
+-    @ObservationIgnored var hasPrintedFPSHighTip = false
+-    @ObservationIgnored var taskStartTime: Date?
+-    @ObservationIgnored var sanityReport: SanityReport?
+-    @ObservationIgnored var fightReport: FightReport?
+-    @ObservationIgnored var stoneUsedTimes = 0
+-    @ObservationIgnored var recruitConfirmTimes = 0
++    @Published private(set) var logs = [MAALog]()
++    @Published var trackTail = false
++    private var logStoreContinuation: AsyncStream<MAALog>.Continuation?
++    private var logStoreTask: Task<Void, Never>?
++
++    @Published var screencapCost: (min: Int, max: Int, avg: Int)?
++    var lastScreencapWarningLevel = 0
++    var hasPrintedFPSHighTip = false
++    var taskStartTime: Date?
++    var sanityReport: SanityReport?
++    var fightReport: FightReport?
++    var stoneUsedTimes = 0
++    var recruitConfirmTimes = 0
+ 
+     // MARK: - Recognition
+ 
+-    private(set) var depot: MAADepot?
+-    private(set) var operBox: MAAOperBox?
++    @Published private(set) var depot: MAADepot?
++    @Published private(set) var operBox: MAAOperBox?
+ 
+     // MARK: - Bridges to Old View Model
+ 
+     private let parent: MAAViewModel
+ 
+-    @ObservationIgnored private var cancellables = Set<AnyCancellable>()
++    private var cancellables = Set<AnyCancellable>()
+ 
+     @MainActor var status: MAAViewModel.Status {
+-        access(keyPath: \.status)
+         return parent.status
+     }
+ 
+-    var dailyTasksDetailMode = MAAViewModel.DailyTasksDetailMode.log
++    @Published var dailyTasksDetailMode = MAAViewModel.DailyTasksDetailMode.log
+ 
+     @MainActor init(parent: MAAViewModel) {
+         self.parent = parent
+         parent.logStore = self
++        // Nested Combine objects do not automatically notify their owner.
++        copilot.objectWillChange.sink { [weak self] _ in
++            self?.objectWillChange.send()
++        }.store(in: &cancellables)
+ 
+         do {
+             let dir = FileManager.default
+@@ -104,7 +106,7 @@
+         }
+ 
+         parent.$status.sink { [weak self] _ in
+-            self?.withMutation(keyPath: \.status) {}
++            self?.objectWillChange.send()
+         }
+         .store(in: &cancellables)
+     }
+@@ -214,7 +216,7 @@
+     func setOperBox(_ operBox: MAAOperBox?)
+     func setDailyTasksDetailMode(_ mode: MAAViewModel.DailyTasksDetailMode)
+ 
+-    var screencapCost: (min: Int, max: Int, avg: Int)? { get set }
++    @Published var screencapCost: (min: Int, max: Int, avg: Int)? { get set }
+     var lastScreencapWarningLevel: Int { get set }
+     var hasPrintedFPSHighTip: Bool { get set }
+     var recruitConfirmTimes: Int { get set }
+--- a/MeoAsstMac/Navigation/CopilotContent.swift
++++ b/MeoAsstMac/Navigation/CopilotContent.swift
+@@ -9,7 +9,7 @@
+ import UniformTypeIdentifiers
+ 
+ struct CopilotContent: View {
+-    @Environment(NewViewModel.self) var newModel
++    @EnvironmentObject var newModel: NewViewModel
+ 
+     struct Item: FileTreeItem {
+         let url: URL
+@@ -30,10 +30,10 @@
+     @State private var bundledRoot = Item(url: .bundledCopilotDirectory)
+     @State private var externalRoot = Item(url: .externalCopilotDirectory)
+ 
+-    @State private var tracker = FileTreeTracker()
++    @StateObject private var tracker = FileTreeTracker()
+ 
+     var body: some View {
+-        @Bindable var context = newModel.copilot
++        @ObservedObject var context = newModel.copilot
+         List(selection: $context.selection) {
+             switch context.category {
+             case .bundled:
+@@ -108,7 +108,7 @@
+                 context.category = .external
+             }
+         }
+-        .onChange(of: context.copilotList.isEmpty, initial: true) {
++        .maaOnChange(of: context.copilotList.isEmpty, initial: true) {
+             if $1, context.category == .list {
+                 context.category = .external
+                 context.selection = nil
+@@ -185,7 +185,7 @@
+ // MARK: - Toolbar
+ 
+ private struct CopilotListToolbar: ToolbarContent {
+-    @Environment(NewViewModel.self) private var newModel
++    @EnvironmentObject private var newModel: NewViewModel
+     @Binding var externalRoot: CopilotContent.Item
+ 
+     var body: some ToolbarContent {
+@@ -315,7 +315,7 @@
+             CopilotContent()
+         }
+         .frame(maxWidth: 300)
+-        .environment(NewViewModel(parent: MAAViewModel()))
++        .environmentObject(NewViewModel(parent: MAAViewModel()))
+     }
+ }
+ 
+--- a/MeoAsstMac/Navigation/CopilotDetail.swift
++++ b/MeoAsstMac/Navigation/CopilotDetail.swift
+@@ -8,7 +8,7 @@
+ import SwiftUI
+ 
+ struct CopilotDetail: View {
+-    @Environment(NewViewModel.self) var newModel
++    @EnvironmentObject var newModel: NewViewModel
+     @State private var showInfo = false
+ 
+     var body: some View {
+@@ -23,7 +23,7 @@
+         .toolbar {
+             DetailToolbar(showInfo: $showInfo)
+         }
+-        .onChange(of: newModel.copilot.content, initial: true) {
++        .maaOnChange(of: newModel.copilot.content, initial: true) {
+             if $1 != nil {
+                 showInfo = true
+             }
+@@ -34,7 +34,7 @@
+ // MARK: - Toolbar
+ 
+ struct DetailToolbar: ToolbarContent {
+-    @Environment(NewViewModel.self) private var newModel
++    @EnvironmentObject private var newModel: NewViewModel
+     @State private var showAdd = false
+     @Binding var showInfo: Bool
+ 
+@@ -63,7 +63,7 @@
+                     .help("运行日志")
+             }
+             .pickerStyle(.segmented)
+-            .onChange(of: newModel.copilotStartToken) {
++            .maaOnChange(of: newModel.copilotStartToken) {
+                 if $1 != nil {
+                     showInfo = false
+                 }
+@@ -73,7 +73,7 @@
+ }
+ 
+ private struct AddPopover: View {
+-    @Environment(NewViewModel.self) var newModel
++    @EnvironmentObject var newModel: NewViewModel
+     @Binding var showAdd: Bool
+     @State private var showImportCopilot = false
+     @State private var prtsCode = ""
+@@ -179,7 +179,7 @@
+         let viewModel = MAAViewModel()
+         CopilotDetail()
+             .environmentObject(viewModel)
+-            .environment(NewViewModel(parent: viewModel))
++            .environmentObject(NewViewModel(parent: viewModel))
+     }
+ }
+ 
+@@ -188,7 +188,7 @@
+         AddPopover(showAdd: .constant(true))
+             .frame(width: 200)
+             .padding()
+-            .environment(NewViewModel(parent: MAAViewModel()))
++            .environmentObject(NewViewModel(parent: MAAViewModel()))
+     }
+ }
+ 
+--- a/MeoAsstMac/Navigation/CopilotListContent.swift
++++ b/MeoAsstMac/Navigation/CopilotListContent.swift
+@@ -8,7 +8,7 @@
+ import SwiftUI
+ 
+ struct CopilotListContent: View {
+-    @Bindable var context: CopilotContext
++    @ObservedObject var context: CopilotContext
+ 
+     var body: some View {
+         ForEach($context.copilotList) { $item in
+@@ -18,7 +18,7 @@
+ }
+ 
+ struct CopilotListControls: View {
+-    @Bindable var context: CopilotContext
++    @ObservedObject var context: CopilotContext
+ 
+     var body: some View {
+         HStack(spacing: 12) {
+@@ -36,7 +36,7 @@
+         }
+         .controlSize(.small)
+         .frame(maxWidth: .infinity)
+-        .contentShape(.rect)
++        .contentShape(Rectangle())
+         .onTapGesture {
+             context.selection = nil
+         }
+@@ -53,6 +53,7 @@
+     }
+ }
+ 
++#if MAA_ENABLE_PREVIEWS
+ #Preview {
+     @Previewable @State var selection = URL?.none
+     @Previewable @State var context = CopilotContext()
+@@ -69,3 +70,4 @@
+         EmptyView()
+     }
+ }
++#endif
+--- a/MeoAsstMac/Navigation/Sidebar.swift
++++ b/MeoAsstMac/Navigation/Sidebar.swift
+@@ -38,8 +38,16 @@
+                     Label("查找日志…", systemImage: "doc.text.magnifyingglass")
+                 }
+ 
+-                SettingsLink {
+-                    Label("设置", systemImage: "gear")
++                if #available(macOS 14.0, *) {
++                    SettingsLink {
++                        Label("设置", systemImage: "gear")
++                    }
++                } else {
++                    Button {
++                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
++                    } label: {
++                        Label("设置", systemImage: "gear")
++                    }
+                 }
+             }
+             .buttonStyle(.plain)
+--- a/MeoAsstMac/Navigation/TaskDetail.swift
++++ b/MeoAsstMac/Navigation/TaskDetail.swift
+@@ -9,7 +9,7 @@
+ 
+ struct TaskDetail: View {
+     @EnvironmentObject private var viewModel: MAAViewModel
+-    @Environment(NewViewModel.self) private var newModel
++    @EnvironmentObject private var newModel: NewViewModel
+     let id: UUID?
+ 
+     var body: some View {
+@@ -77,7 +77,6 @@
+         }
+ 
+         ToolbarItem {
+-            @Bindable var newModel = newModel
+             Picker("内容", selection: $newModel.dailyTasksDetailMode) {
+                 Label("选项", systemImage: "gearshape").tag(MAAViewModel.DailyTasksDetailMode.taskConfig)
+                 Label("日志", systemImage: "note.text").tag(MAAViewModel.DailyTasksDetailMode.log)
+@@ -101,6 +100,6 @@
+         let newModel = NewViewModel(parent: viewModel)
+         TaskDetail(id: nil)
+             .environmentObject(MAAViewModel())
+-            .environment(newModel)
++            .environmentObject(newModel)
+     }
+ }
+--- a/MeoAsstMac/Navigation/TasksContent.swift
++++ b/MeoAsstMac/Navigation/TasksContent.swift
+@@ -39,7 +39,7 @@
+             }
+             .onMove(perform: moveTask)
+         }
+-        .onChange(of: selection, updateViewMode)
++        .maaOnChange(of: selection, updateViewMode)
+         .toolbar(content: listToolbar)
+         .animation(.default, value: viewModel.tasks)
+         .onReceive(viewModel.$newTaskAdded, perform: selectLastTask)
+--- a/MeoAsstMac/Settings/UpdaterSettingsView.swift
++++ b/MeoAsstMac/Settings/UpdaterSettingsView.swift
+@@ -26,19 +26,8 @@
+ 
+     var body: some View {
+         Form {
+-            Toggle("接收开发版更新", isOn: $useBetaChannel)
+-
+-            Toggle("自动检查更新", isOn: $automaticallyChecksForUpdates)
+-                .onChange(of: automaticallyChecksForUpdates) {
+-                    updater.automaticallyChecksForUpdates = $1
+-                }
+-
+-            Toggle("自动下载更新", isOn: $automaticallyDownloadsUpdates)
+-                .disabled(!automaticallyChecksForUpdates)
+-                .onChange(of: automaticallyDownloadsUpdates) {
+-                    updater.automaticallyDownloadsUpdates = $1
+-                }
+-
++            Text("macOS 13 兼容版：程序更新已停用，资源更新仍可使用。")
++                .font(.caption).foregroundStyle(.secondary)
+             Divider()
+ 
+             Picker("资源更新来源", selection: $resourceChannel) {
+--- a/MeoAsstMac/Task Configurations/CopilotConfiguration.swift
++++ b/MeoAsstMac/Task Configurations/CopilotConfiguration.swift
+@@ -6,7 +6,7 @@
+ //
+ 
+ import Foundation
+-import Observation
++import Combine
+ 
+ struct CopilotConfiguration: Codable, Hashable {
+     var enable = true
+@@ -89,10 +89,9 @@
+     case list
+ }
+ 
+-@Observable final class CopilotContext {
+-    var config = CopilotConfiguration()
+-
+-    @ObservationIgnored
++final class CopilotContext: ObservableObject {
++    @Published var config = CopilotConfiguration()
++
+     @Defaults("CopilotContentCategory")
+     var category = CopilotCategory.bundled
+ 
+@@ -104,9 +103,9 @@
+         let isRaid: Bool?
+     }
+ 
+-    @ObservationIgnored @MainActor private var contentUpdateTask: Task<Void, Never>?
+-
+-    @MainActor var selection: ItemID? {
++    @MainActor private var contentUpdateTask: Task<Void, Never>?
++
++    @Published @MainActor var selection: ItemID? {
+         didSet {
+             guard oldValue != selection else {
+                 return
+@@ -134,14 +133,14 @@
+         case invalid
+     }
+ 
+-    private(set) var content: Content?
++    @Published private(set) var content: Content?
+ 
+     struct CopilotSet {
+         let kind: MAACopilot.Kind
+         let data: CopilotSetData
+     }
+ 
+-    private(set) var copilotSet: CopilotSet?
++    @Published private(set) var copilotSet: CopilotSet?
+ 
+     struct ListItem: Identifiable {
+         let url: URL
+@@ -155,7 +154,7 @@
+         }
+     }
+ 
+-    var copilotList = [ListItem]() {
++    @Published var copilotList = [ListItem]() {
+         didSet {
+             if copilotList.isEmpty {
+                 copilotSet = nil
+--- a/MeoAsstMac/Views/CapsulePicker.swift
++++ b/MeoAsstMac/Views/CapsulePicker.swift
+@@ -92,6 +92,7 @@
+     }
+ }
+ 
++#if MAA_ENABLE_PREVIEWS
+ #Preview {
+     @Previewable @State var category = CopilotCategory.bundled
+     List {
+@@ -107,3 +108,4 @@
+     }
+     .frame(maxWidth: 300)
+ }
++#endif
+--- a/MeoAsstMac/Views/CopilotView.swift
++++ b/MeoAsstMac/Views/CopilotView.swift
+@@ -8,10 +8,9 @@
+ import SwiftUI
+ 
+ struct CopilotView: View {
+-    let context: CopilotContext
+-
+-    var body: some View {
+-        @Bindable var context = context
++    @ObservedObject var context: CopilotContext
++
++    var body: some View {
+         if context.category == .list {
+             if let set = context.copilotSet {
+                 switch context.content {
+@@ -198,6 +197,7 @@
+     }
+ }
+ 
++#if MAA_ENABLE_PREVIEWS
+ #Preview("Regular Copilot Config") {
+     let context = CopilotContext()
+     let url = URL.bundledCopilotDirectory
+@@ -209,7 +209,9 @@
+         CopilotView(context: context)
+     }
+ }
+-
++#endif
++
++#if MAA_ENABLE_PREVIEWS
+ #Preview("SSS Copilot Config") {
+     let context = CopilotContext()
+     let url = URL.bundledCopilotDirectory
+@@ -223,3 +225,4 @@
+         CopilotView(context: context)
+     }
+ }
++#endif
+--- a/MeoAsstMac/Views/DepotView.swift
++++ b/MeoAsstMac/Views/DepotView.swift
+@@ -9,7 +9,7 @@
+ import SwiftUI
+ 
+ struct DepotView: View {
+-    @Environment(NewViewModel.self) private var viewModel
++    @EnvironmentObject private var viewModel: NewViewModel
+ 
+     @JSONRepresentable fileprivate struct Item: Identifiable {
+         let id: String
+@@ -103,6 +103,6 @@
+ struct DepotView_Previews: PreviewProvider {
+     static var previews: some View {
+         DepotView()
+-            .environment(NewViewModel(parent: MAAViewModel()))
++            .environmentObject(NewViewModel(parent: MAAViewModel()))
+     }
+ }
+--- a/MeoAsstMac/Views/EditableTextList.swift
++++ b/MeoAsstMac/Views/EditableTextList.swift
+@@ -51,7 +51,7 @@
+             }
+         }
+         .animation(.default, value: texts)
+-        .onChange(of: focusedField) {
++        .maaOnChange(of: focusedField) {
+             selection = $1
+         }
+     }
+--- a/MeoAsstMac/Views/FileTreeView.swift
++++ b/MeoAsstMac/Views/FileTreeView.swift
+@@ -6,6 +6,7 @@
+ //
+ 
+ import SwiftUI
++import Combine
+ 
+ protocol FileTreeItem: Identifiable, Sendable {
+     var url: URL { get }
+@@ -62,8 +63,9 @@
+                     await updateItemChildren()
+                 }
+             }
+-            .onChange(of: tracker?.urlActionEvent) {
+-                if $1?.url == item.url {
++            .onReceive(tracker?.$urlActionEvent.dropFirst().eraseToAnyPublisher()
++                ?? Empty<FileTreeTracker.URLActionEvent?, Never>().eraseToAnyPublisher()) { event in
++                if event?.url == item.url {
+                     isExpanded.toggle()
+                 }
+             }
+@@ -81,13 +83,13 @@
+     }
+ }
+ 
+-@Observable final class FileTreeTracker {
++final class FileTreeTracker: ObservableObject {
+     fileprivate struct URLActionEvent: Hashable {
+         fileprivate let id: UUID
+         fileprivate let url: URL
+     }
+ 
+-    fileprivate var urlActionEvent: URLActionEvent?
++    @Published fileprivate var urlActionEvent: URLActionEvent?
+ 
+     func sendURLAction(of url: URL) {
+         urlActionEvent = .init(id: UUID(), url: url)
+@@ -116,6 +118,7 @@
+     }
+ }
+ 
++#if MAA_ENABLE_PREVIEWS
+ #Preview {
+     @Previewable @State var selection: URL?
+     @Previewable @State var tracker = FileTreeTracker()
+@@ -134,3 +137,4 @@
+         }
+     }
+ }
++#endif
+--- a/MeoAsstMac/Views/LogView.swift
++++ b/MeoAsstMac/Views/LogView.swift
+@@ -8,7 +8,7 @@
+ import SwiftUI
+ 
+ struct LogView: View {
+-    @Environment(NewViewModel.self) private var newModel
++    @EnvironmentObject private var newModel: NewViewModel
+ 
+     var body: some View {
+         ScrollViewReader { proxy in
+@@ -24,20 +24,19 @@
+                 .width(min: 100, ideal: 300)
+             }
+             .toolbar {
+-                @Bindable var newModel = newModel
+                 Toggle(isOn: $newModel.trackTail) {
+                     Label("现在", systemImage: "arrow.down.to.line")
+                 }
+                 .help("自动滚动到底部")
+             }
+-            .onChange(of: newModel.logs) { _, newValue in
++            .maaOnChange(of: newModel.logs) { _, newValue in
+                 if newModel.trackTail {
+                     withAnimation {
+                         proxy.scrollTo(newValue.last?.id ?? UUID())
+                     }
+                 }
+             }
+-            .onChange(of: newModel.trackTail) {
++            .maaOnChange(of: newModel.trackTail) {
+                 if $1 {
+                     withAnimation {
+                         proxy.scrollTo(newModel.logs.last?.id ?? UUID())
+@@ -50,6 +49,6 @@
+ 
+ struct LogView_Previews: PreviewProvider {
+     static var previews: some View {
+-        LogView().environment(NewViewModel(parent: MAAViewModel()))
++        LogView().environmentObject(NewViewModel(parent: MAAViewModel()))
+     }
+ }
+--- a/MeoAsstMac/Views/MaaToolsView.swift
++++ b/MeoAsstMac/Views/MaaToolsView.swift
+@@ -246,8 +246,10 @@
+     }
+ }
+ 
++#if MAA_ENABLE_PREVIEWS
+ #Preview {
+     MaaToolsView()
+         .padding()
+         .frame(width: 450, height: 360)
+ }
++#endif
+--- a/MeoAsstMac/Views/MiniGameView.swift
++++ b/MeoAsstMac/Views/MiniGameView.swift
+@@ -31,7 +31,7 @@
+                     }
+                 }
+                 .pickerStyle(.menu)
+-                .onChange(of: context.date) {
++                .maaOnChange(of: context.date) {
+                     if !selectedGame.isValid(at: $1) {
+                         selectedGame = MiniGameOption.greenTicketStore.tag
+                     }
+@@ -60,7 +60,7 @@
+         .padding()
+         .animation(.default, value: otaMiniGames)
+         .animation(.default, value: selectedGame)
+-        .onChange(of: otaMiniGames, initial: true) {
++        .maaOnChange(of: otaMiniGames, initial: true) {
+             for game in $1 {
+                 if game.Value == selection {
+                     selectedGame = game.tag
+@@ -74,7 +74,7 @@
+                 }
+             }
+         }
+-        .onChange(of: selectedGame) {
++        .maaOnChange(of: selectedGame) {
+             selection = $1.taskName
+         }
+     }
+--- a/MeoAsstMac/Views/OperBoxView.swift
++++ b/MeoAsstMac/Views/OperBoxView.swift
+@@ -9,7 +9,7 @@
+ import SwiftUI
+ 
+ struct OperBoxView: View {
+-    @Environment(NewViewModel.self) private var viewModel
++    @EnvironmentObject private var viewModel: NewViewModel
+ 
+     @State private var copyState: Bool?
+ 
+@@ -59,7 +59,7 @@
+             }
+             .animation(.default, value: copyState)
+             .disabled(viewModel.operBox?.done != true)
+-            .onChange(of: viewModel.operBox?.done) {
++            .maaOnChange(of: viewModel.operBox?.done) {
+                 if $1 == false {
+                     copyState = nil
+                 }
+--- a/MeoAsstMac/Views/PixelPaintView.swift
++++ b/MeoAsstMac/Views/PixelPaintView.swift
+@@ -8,7 +8,7 @@
+ import SwiftUI
+ 
+ struct PixelPaintView: View {
+-    @Environment(NewViewModel.self) private var newModel
++    @EnvironmentObject private var newModel: NewViewModel
+     @Binding var params: Any?
+ 
+     @State private var image: CGImage?
+@@ -72,7 +72,7 @@
+         .popover(isPresented: $showConfig, arrowEdge: .leading) {
+             PixelConfigView(config: $config).padding()
+         }
+-        .onChange(of: painting) {
++        .maaOnChange(of: painting) {
+             guard let painting = $1 else { return }
+             params = [
+                 "pixel_paint": [
+@@ -158,6 +158,7 @@
+     }
+ }
+ 
++#if MAA_ENABLE_PREVIEWS
+ #Preview("PixelPaintView") {
+     NavigationSplitView {
+         EmptyView()
+@@ -167,8 +168,9 @@
+         PixelPaintView(params: .constant(""))
+             .padding()
+     }
+-    .environment(NewViewModel(parent: MAAViewModel()))
++    .environmentObject(NewViewModel(parent: MAAViewModel()))
+ }
++#endif
+ 
+ extension PixelPainting {
+     fileprivate func groups(white: Bool) -> [Any] {
+--- a/MeoAsstMac/Views/RecruitView.swift
++++ b/MeoAsstMac/Views/RecruitView.swift
+@@ -47,7 +47,7 @@
+                 }
+             }
+         }
+-        .onChange(of: lv3ShortTime) {
++        .maaOnChange(of: lv3ShortTime) {
+             viewModel.recruitConfig.recruitment_time["3"] = $1 ? 460 : 540
+         }
+     }
+--- a/MeoAsstMac/Views/ResourceUpdateView.swift
++++ b/MeoAsstMac/Views/ResourceUpdateView.swift
+@@ -66,7 +66,7 @@
+                     }
+             }
+         }
+-        .animation(.smooth, value: progress?.0)
++        .animation(.easeInOut, value: progress?.0)
+         .padding()
+         .task {
+             do {
+@@ -159,6 +159,8 @@
+ private let localURL = tmpURL.appendingPathComponent("MaaResource.zip")
+ private let changesURL = tmpURL.appendingPathComponent("changes.json", isDirectory: false)
+ 
++#if MAA_ENABLE_PREVIEWS
+ #Preview {
+     ResourceUpdateView {}
+ }
++#endif
+--- a/MeoAsstMac/Views/TaskTimerView.swift
++++ b/MeoAsstMac/Views/TaskTimerView.swift
+@@ -83,7 +83,7 @@
+                 Text("开启")
+             })
+             .toggleStyle(.switch)
+-            .onChange(of: taskTimer.isEnabled) {
++            .maaOnChange(of: taskTimer.isEnabled) {
+                 if $1 {
+                     onEnabled()
+                 }
+--- a/MeoAsstMac.xcodeproj/project.pbxproj
++++ b/MeoAsstMac.xcodeproj/project.pbxproj
+@@ -778,7 +778,7 @@
+ 				GCC_WARN_UNUSED_FUNCTION = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+-				MACOSX_DEPLOYMENT_TARGET = 14.0;
++				MACOSX_DEPLOYMENT_TARGET = 13.3;
+ 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+ 				MTL_FAST_MATH = YES;
+ 				ONLY_ACTIVE_ARCH = YES;
+@@ -869,7 +869,7 @@
+ 				GCC_WARN_UNUSED_FUNCTION = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+-				MACOSX_DEPLOYMENT_TARGET = 14.0;
++				MACOSX_DEPLOYMENT_TARGET = 13.3;
+ 				MTL_ENABLE_DEBUG_INFO = NO;
+ 				MTL_FAST_MATH = YES;
+ 				SDKROOT = macosx;
