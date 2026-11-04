@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Download only matching-tag MaaCore include/ files with GitHub Contents API.
 
-The v6.21.1 source archive is over 100 MB; the build only consumes include/.
+The full MAA source archive is over 100 MB; the build only consumes include/.
 This authenticated, path-scoped download avoids the large archive dependency.
 """
 from __future__ import annotations

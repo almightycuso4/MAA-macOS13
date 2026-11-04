@@ -1,0 +1,39 @@
+MAA macOS 13：v6.21.3 更新分支操作（保留已驗收的 v6.21.1 main）
+
+一、建立獨立分支
+1. 開啟 GitHub Desktop，Current Repository（目前倉庫）選 MAA-macOS13。
+2. Current Branch（目前分支）選 main。
+3. 確認 Changes（變更）沒有未提交內容。
+4. 選 Branch（分支）→ New Branch（新增分支）。
+5. 名稱輸入 update/v6.21.3，基於 main 建立。
+6. 按 Create Branch（建立分支）。不要在 main 上直接提交更新。
+
+二、套用修補包
+1. 將 MAA-macOS13-v6.21.3-update-patch.zip 放在 Mac「下載」資料夾。
+2. GitHub Desktop 選 Repository（倉庫）→ Open in Terminal（在終端機開啟）。
+3. 逐行執行：
+
+   mkdir -p "$HOME/Downloads/MAA-v6.21.3-update"
+   ditto -x -k "$HOME/Downloads/MAA-macOS13-v6.21.3-update-patch.zip" "$HOME/Downloads/MAA-v6.21.3-update"
+   ditto "$HOME/Downloads/MAA-v6.21.3-update/MAA-macOS13" .
+
+4. 返回 GitHub Desktop → Changes（變更），確認有 config/release-manifest.json、scripts/release_manifest.py、scripts/build.sh、.github/workflows/build.yml、tests/test_release_manifest.py 等檔案。
+5. Summary（提交摘要）輸入：Prepare macOS 13 port for MAA v6.21.3
+6. 點 Commit to update/v6.21.3（提交到更新分支）。
+7. 點 Publish branch（發布分支）或 Push origin（推送到 GitHub）。
+
+三、執行 GitHub Actions
+1. 打開 GitHub 倉庫 → Actions（自動化工作流程）。
+2. 左側選 Build MAA for macOS 13。
+3. 點 Run workflow（執行工作流程）。
+4. 「Use workflow from」（使用此分支的工作流程）選 update/v6.21.3。
+5. core_tag 保持 v6.21.3。
+6. 點綠色 Run workflow（確認執行）。建立新執行，不要重跑舊版紀錄。
+
+四、結果處理
+- 綠色勾號：下載 Artifacts（產出檔案）中的 MAA-macOS13-arm64-candidate，在 macOS 13.7.4 測試啟動、資源初始化、遊戲連線及一項實際任務。
+- 紅色叉號：下載完整 build-logs ZIP，上傳給 ChatGPT。優先檢查 build.log 第一個真正錯誤、core-header-download.txt、core-api-check.txt、maacore-nm.txt、core-cxx-bridge-check.txt、core-swift-import-check.txt。
+- 不要將失敗分支合併到 main。
+- 實機驗收通過後，才把 update/v6.21.3 合併到 main，並建立標籤 macos13-v6.21.3。
+
+注意：官方 DMG 從 MaaRelease 下載；C API 標頭從主程式倉庫下載。建置前會核對 DMG SHA-256、標頭 Git blob SHA-1。這個修補包不是可直接啟動的 MAA.app；完整 GUI 編譯及實機驗收尚待執行。
