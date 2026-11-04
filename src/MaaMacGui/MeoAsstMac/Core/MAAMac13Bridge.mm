@@ -2,7 +2,7 @@
 // Use the official release header in C++ mode; preflight validates it.
 // Compiled by the GUI target: no replacement declarations for upstream
 // symbols, no ABI guesses, and no substitute or omitted functionality.
-// In MaaCore v6.21.1, the experimental extension declarations are guarded by
+// In the pinned MAA Core release, the extension declarations are guarded by
 // #if ASST_WITH_EXTRA_CALLERS. The official dylib exports both entry points,
 // but clients must explicitly enable their declarations before including the
 // extension header. Keep the flag local to this ObjC++ translation unit: the
