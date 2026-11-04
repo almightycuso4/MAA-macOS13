@@ -1,0 +1,25 @@
+# macOS / Xcode local files
+.DS_Store
+__pycache__/
+*.py[cod]
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.xcworkspace/xcuserdata/
+
+# Local build products and downloaded upstream artifacts
+work/
+build/
+output/
+logs/
+resource/
+*.app/
+*.xcframework/
+*.dmg
+*.zip
+
+# Local developer overrides and credentials
+Local.xcconfig
+.env
+.env.*
+!.env.example

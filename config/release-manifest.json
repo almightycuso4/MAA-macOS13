@@ -1,5 +1,5 @@
 {
-  "stable_baseline": "v6.21.1",
+  "stable_baseline": "v6.21.3",
   "default_tag": "v6.21.3",
   "macos_deployment_target": "13.3",
   "architecture": "arm64",

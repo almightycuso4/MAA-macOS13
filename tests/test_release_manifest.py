@@ -13,11 +13,23 @@ SPEC.loader.exec_module(MODULE)
 
 
 class ReleaseManifestTests(unittest.TestCase):
-    def test_default_is_v6213_and_baseline_is_v6211(self):
+    def test_v6213_is_the_current_stable_baseline(self):
         manifest = MODULE.load_manifest()
-        self.assertEqual(manifest["stable_baseline"], "v6.21.1")
+        self.assertEqual(manifest["stable_baseline"], "v6.21.3")
         self.assertEqual(manifest["default_tag"], "v6.21.3")
         self.assertEqual(MODULE.load_manifest()["default_tag"], "v6.21.3")
+
+
+    def test_readme_marks_v6213_as_tested_stable_release(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("当前稳定版本为 **v6.21.3**", readme)
+        self.assertIn("macOS 13.7.4 实机", readme)
+        self.assertIn("非官方兼容构建", readme)
+
+    def test_xcode_marketing_version_matches_manifest_default(self):
+        version_config = (ROOT / "src/MaaMacGui/Version.xcconfig").read_text(encoding="utf-8")
+        expected = MODULE.load_manifest()["default_tag"].removeprefix("v")
+        self.assertRegex(version_config, rf"(?m)^MARKETING_VERSION = {re.escape(expected)}$")
 
     def test_workflow_default_matches_manifest(self):
         workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
