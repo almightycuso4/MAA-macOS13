@@ -1,0 +1,15 @@
+{
+  "stable_baseline": "v6.21.1",
+  "default_tag": "v6.21.3",
+  "macos_deployment_target": "13.3",
+  "architecture": "arm64",
+  "releases": {
+    "v6.21.3": {
+      "macos_dmg": "MAA-v6.21.3-macos-universal.dmg",
+      "macos_dmg_sha256": "06525d4cdad0210efb2ae8465b31505ee28ea9092f672c3588e601914a1ef417",
+      "release_url": "https://github.com/MaaAssistantArknights/MaaRelease/releases/tag/v6.21.3"
+    }
+  },
+  "release_repository": "MaaAssistantArknights/MaaRelease",
+  "source_repository": "MaaAssistantArknights/MaaAssistantArknights"
+}

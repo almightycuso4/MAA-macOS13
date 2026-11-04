@@ -1,25 +1,41 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-: "${MAA_CORE_TAG:=v6.21.1}"
+DEFAULT_MAA_CORE_TAG="$(python3 scripts/release_manifest.py --default)"
+: "${MAA_CORE_TAG:=$DEFAULT_MAA_CORE_TAG}"
 if [[ ! "$MAA_CORE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]; then
   echo 'Invalid release tag' >&2; exit 1
 fi
 xcodebuild -version
 swift --version
 mkdir -p work/download build output logs
-# Test the exact-tag, authenticated header fetcher before external downloads.
-python3 -m unittest discover -s tests -p test_fetch_core_headers.py
+# Run offline regression tests before downloading any release artifacts.
+python3 -m unittest discover -s tests -p 'test_*.py'
 # Runtime and headers MUST come from the same tag. Never silently substitute latest.
-gh release download "$MAA_CORE_TAG" --repo MaaAssistantArknights/MaaAssistantArknights \
-  --pattern "MAA-${MAA_CORE_TAG}-macos-universal.dmg" --dir work/download
+IFS=$'\t' read -r CORE_DMG_NAME CORE_DMG_SHA256 RELEASE_REPOSITORY <<< "$(python3 scripts/release_manifest.py "$MAA_CORE_TAG")"
+CORE_DMG_PATH="$PWD/work/download/$CORE_DMG_NAME"
+# Release binaries live in MaaRelease; source headers are fetched separately
+# from the matching tag in MaaAssistantArknights/MaaAssistantArknights.
+asset_ready=0
+for attempt in 1 2 3; do
+  rm -f "$CORE_DMG_PATH"
+  if gh release download "$MAA_CORE_TAG" --repo "$RELEASE_REPOSITORY" \
+      --pattern "$CORE_DMG_NAME" --dir work/download \
+      && printf '%s  %s\n' "$CORE_DMG_SHA256" "$CORE_DMG_PATH" | shasum -a 256 -c -; then
+    asset_ready=1
+    break
+  fi
+  echo "Official DMG download/checksum failed; attempt $attempt/3" >&2
+  sleep $((attempt * 5))
+done
+[[ "$asset_ready" -eq 1 ]] || { echo 'Could not download a verified official MAA DMG' >&2; exit 1; }
 # Only the matching release's public headers are needed; do not fetch the
 # entire 100+ MB source archive. The Contents API returns each file's Git SHA
 # and lets us validate the bytes before using them to build the XCFramework.
 mkdir -p work/headers
 python3 scripts/fetch_core_headers.py "$MAA_CORE_TAG" work/headers logs
 mkdir -p work/mount
-hdiutil attach "work/download/MAA-${MAA_CORE_TAG}-macos-universal.dmg" \
+hdiutil attach "$CORE_DMG_PATH" \
   -nobrowse -readonly -mountpoint "$PWD/work/mount"
 trap 'hdiutil detach "$PWD/work/mount" >/dev/null 2>&1 || true' EXIT
 stock_app=$(find "$PWD/work/mount" -maxdepth 3 -name MAA.app -type d -print -quit)

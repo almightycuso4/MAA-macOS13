@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       core_tag:
-        description: 'Official MAA release supplying runtime and matching headers'
-        default: v6.21.1
+        description: 'Pinned official MAA release; update config/release-manifest.json before selecting another tag'
+        default: v6.21.3
         required: true
         type: string
 permissions:
